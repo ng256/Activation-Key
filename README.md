@@ -61,4 +61,4 @@ bool valid = activationKey.Verify<AesManaged, MD5CryptoServiceProvider>("passwor
 This code creates an activation key that looks like this:  
 HWAPFVNL3XG5WPO3U3SHNWRBFDWZXPTSRK2BA5U4KU1QSBDTGWPQ-OEZHVY6VM4YGAW2CFZ31SDQ6CM-IO5Y4TIMIJFJBOOGEFUQI53T1M  
 
-As you can see, using cryptographic aggregates like aes and md5 creates keys that are too long. Such keys are not very convenient, but they provide more reliable cryptographic strength. 
+As you can see, using cryptographic aggregates like AES and MD5 creates keys that are too long. Such keys are not very convenient, but they provide more reliable cryptographic strength. 
