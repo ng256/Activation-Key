@@ -2,7 +2,7 @@
 Represents the activation key used to protect your C# application. The key can be stored as a human readable text for easy transfering to the end user. 
 Contains methods for generating the key based on the specified hardware and software environment.
 
-# Format. 
+## Format. 
 Key format: DATA-HASH-TAIL
 | Part | Description |
 |:----:|:----|
@@ -12,12 +12,12 @@ Key format: DATA-HASH-TAIL
 
 For example, KCATBZ14Y-VGDM2ZQ-ATSVYMI.
 
-# Futures.
+## Futures.
 - Generation of an activation key and its verification.
 - Setting and restoration of information about user restrictions and permissions.  
 - Using built in or specified encryption and hash algorithms.
 
-# Key binding.
+## Key binding.
 Activation key is generated and verified using the following parameters:
 - **expiration date** - limits the program's validity to the specified date. If value is ommited, it does not expire.  
 - **password** - an optional parameter, assumes that the user must enter the correct password to run the program. If you pass null, then password is not used.    
@@ -26,7 +26,8 @@ Activation key is generated and verified using the following parameters:
 
 It is also possible to create a key without any restrictions.
 
-# Example of generating a key.
+## Examples.
+### Example of generating a key.
 ```csharp
 ActivationKey activationKey = new ActivationKey(
 DateTime.Now.AddMonths(1),       // Expiration date 1 month later.
@@ -46,13 +47,13 @@ DateTime.Now.AddMonths(1),       // Expiration date 1 month later.
 This code creates an activation key that looks like this:  
 A5IE5SYJQIZEM4CTIHRWX2FDV6LO5-KAGJRCQ-KRW3MSA. 
 
-# Example of checking a key.
+### Example of checking a key.
 ```csharp
 byte[] restoredOptions = activationKey.GetOptions("password", "myAppName", "01:02:03:04:05:06");
 bool checkKey = activationKey.Verify("password", "myAppName", "01:02:03:04:05:06");
 ```
 
-# Example of using custom encrypt and hash algorithms.
+### Example of using custom encrypt and hash algorithms.
 ```csharp
 ActivationKey activationKey = ActivationKey.Create<AesManaged, MD5CryptoServiceProvider>(DateTime.Now.AddMonths(1), "password", "permitSave", "myAppName", "01:02:03:04:05:06");
 byte[] restoredOptions = activationKey.GetOptions<AesManaged, MD5CryptoServiceProvider>("password", "myAppName", "01:02:03:04:05:06");
