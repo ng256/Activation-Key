@@ -94,6 +94,25 @@ namespace System.Security.Cryptography
 			Tail = iv;
 		}
 	}
+	
+	/// <summary>
+        /// Initializes a new instance <see cref = "ActivationKey" />,
+        /// actual for the specified environment parameters.
+        /// </summary>
+        /// <param name = "expirationDate"> The expiration date of this key. </param>
+        /// <param name = "password"> Password. </param>
+        /// <param name = "options">
+        ///  Additional options that determine the capabilities of the program, for example, the number
+        ///  launches or restriction on the use of certain functions. </param>
+        /// <param name = "environment">
+        ///  Additional parameters that define the firmware binding,
+        ///  such as workstation id, application name, etc.
+        /// </param> 
+	public ActivationKey(DateTime expirationDate, SecureString password, object options = null, params object[] environment)
+		:this(expirationDate, Serialize(password), options, environment)
+	{
+	}
+
 
 	/// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
@@ -142,10 +161,10 @@ namespace System.Security.Cryptography
         /// Additional parameters that define the firmware binding,
         /// such as workstation id, application name, etc.
         /// </param> 
-		public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
-			: this(expirationDate, Serialize(password), options, environment)
-		{
-		}
+	public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
+		: this(expirationDate, Serialize(password), options, environment)
+	{
+	}
 		
 		/// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
@@ -332,18 +351,41 @@ namespace System.Security.Cryptography
         /// such as workstation id, application name, etc.
         /// </param>
         /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
-	public bool Verify(object password = null, params object[] environment)
+	public bool Verify(byte[] password = null, params object[] environment)
 	{
 		try
 		{
-			byte[] key = Serialize(password);
-			return Verify(key, environment);
+			return Verify(password, environment);
 		}
 		catch
 		{
 			return false;
 		}
 	}
+	
+	/// <summary>
+        /// Checks if the activation key is valid,
+        /// represented by the current instance <see cref = "ActivationKey" />
+        /// for the specified environment parameters.
+        /// </summary>
+        /// <param name = "password"> Password. </param>
+        /// <param name = "environment">
+        /// Additional parameters that define the firmware binding,
+        /// such as workstation id, application name, etc.
+        /// </param>
+        /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
+	public bool Verify(SecureString password = null, params object[] environment)
+	{
+		try
+		{
+			return Verify(password, environment);
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
 
 	/// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
