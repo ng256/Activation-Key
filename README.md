@@ -61,9 +61,9 @@ Use the **ToString()** overriden method to get a string containing the key text,
 The additional **ToString(format)** method is useful for generating a description string in a custom format. Format can include substrings *{data}*, *{hash}* and *{tail}* as substitution parameters, which will be replaced by the corresponding parts of the key.  
 
 ### How the key is generated.
-1. Creates an encryption engine using a password and stores the initialization vector in the **Tail** property. Then  
-2. The expiration date and options are encrypted and the encrypted data is saved into the **Data** property.
-3. The hashing engine calculates a hash based on the expiration date, password, options and environment and puts it in the **Hash** property. 
+1. Creates an encryption engine using a password and stores the initialization vector in the **Tail** property.  
+2. Next step, expiration date and options are encrypted and the encrypted data is saved into the **Data** property.
+3. Finally, the hashing engine calculates a hash based on the expiration date, password, options and environment and puts it in the **Hash** property. 
 
 ## Usage.
 ### Example of generating a key.
