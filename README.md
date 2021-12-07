@@ -1,6 +1,7 @@
 # Activation Key.
-Represents the activation key used to protect your C# application. The key can be stored as a human readable text for easy transfering to the end user. 
-Contains methods for generating the cryptography key based on the specified hardware and software environment. An additional feature is the ability to embed any information into the key. This information can be recovered as a byte array during key verifying.  
+Represents the activation key used to protect your C# application. It is also called a license key, product key, product activation, software key and even a serial number. It is a specific software-based key for a computer program. It certifies that the copy of the program is original.  
+The key can be stored as a human readable text for easy transfering to the end user.  
+Contains methods for generating the cryptography key based on the specified hardware and software binding. An additional feature is the ability to embed any information directly into the key. This information can be recovered as a byte array during key verifying.  
 
 ## Format. 
 Key format: DATA-HASH-TAIL
@@ -24,13 +25,44 @@ Activation key is generated and verified using the following parameters:
 - **options** - information that is restored when checking the key in its original form; may contain data such as the maximum number of launches, a key for decrypting a program block, restrictions and permisions to use any functions and other parameters necessary for the correct operation of the program. A value null for this parameter, when validated, will return an empty byte array.  
 - **environment** - parameters for binding to the environment. These may include the name and version of the application, workstation ID, username, etc. If you do not specify environment parameters, then the key will not take any bounds.  
 
-It is also possible to create a key without any restrictions.
+Thus, a range of tasks is solved:
+- limiting the period of use of the program;
+- limiting the distribution of the program to other computers;
+- accounting of usernames and passwords;
+- differentiation of user access rights to various program functions;
+- storage in the key important information, without which application launch is impossible, for example you can add an cryptographyc token for encrypted assembly.
+
+It is also possible to create a key without any limits.
 
 ## Details.
+
+### How the key is generated.
+1. Creates an encryption engine using a password and stores the initialization vector in the **Tail** property.  
+2. Next step, expiration date and options are encrypted and the encrypted data is saved into the **Data** property.
+3. Finally, the hashing engine calculates a hash based on the expiration date, password, options and environment and puts it in the **Hash** property. 
+
 ### Initialization.
 Main initializers of a new instance of ActivationKey look like this:
 ```csharp
-public ActivationKey(DateTime expirationDate, byte[] password, object options = null, params object[] environment);
+public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
+{
+  if (password == null) password = new byte[0];
+  byte[] iv = new byte[4]; // initialization vector
+  byte[] key = Serialize(password); // encryption key
+  InternalRng.GetBytes(iv); // randomize bytes
+  using (_ARC4 arc4 = new _ARC4(key, iv))
+  {
+    expirationDate = expirationDate.Date;
+    long expirationDateStamp = expirationDate.ToBinary();
+    // encrypting data part of the key
+    Data = arc4.Cipher(expirationDateStamp, options);
+    _SMHasher mmh3 = new _SMHasher();
+    // calculating hash of the key
+    Hash = mmh3.GetBytes(expirationDateStamp, password, options, environment, iv);
+    // initialization vector increases the cryptographic strength
+    Tail = iv;
+  }
+}
 ```
 | Parameter name | Description |
 | :----: | :---- |
@@ -48,22 +80,201 @@ public ActivationKey(byte[] data, byte[] hash, byte[] tail);
 // From a readable textual representation.
 public ActivationKey(string activationKey);
 ```
-### Verifying.
-Key verification is carried out using methodes GetOptions an Verify. 
 
-| Parameter name | Description |
-| :----: | :---- |
-| GetOptions | Checks the key and restores embeded data as byte array or null if key is not valid. |
-| Verify | Just checks the key. |
+### Verifying.
+Key verification is carried out using methodes **GetOptions** an **Verify**. 
+- **GetOptions** checks the key and restores embeded data as byte array or null if key is not valid.  
+- **Verify** just checks the key.  
+
+The above methods used the same parameters as in the constructor, I will not describe them here.  
+```csharp
+public byte[] GetOptions(object password = null, params object[] environment)
+{
+  if (Data == null || Hash == null || Tail == null) return null;
+  try
+  {
+    byte[] key = Serialize(password);
+    using (_ARC4 arc4 = new _ARC4(key, Tail))
+    {
+      // decrypting the data
+      byte[] data = arc4.Cipher(Data);
+      int optionsLength = data.Length - 8;
+      if (optionsLength < 0)
+      {
+        return null;
+      }
+      // slicing the options from data
+      byte[] options;
+      if (optionsLength > 0)
+      {
+        options = new byte[data.Length - 8];
+        Buffer.BlockCopy(data, 8, options, 0, optionsLength);
+      }
+      else
+      {
+        options = new byte[0];
+      }
+      // checking expiration date
+      long expirationDateStamp = BitConverter.ToInt64(data, 0);
+      DateTime expirationDate = DateTime.FromBinary(expirationDateStamp);
+      if (expirationDate < DateTime.Today)
+      {
+        return null;
+      }
+      // checking the hash for verifying key
+      _SMHasher mmh3 = new _SMHasher();
+      byte[] hash = mmh3.GetBytes(expirationDateStamp, password, options, environment, Tail);
+      return ByteArrayEquals(Hash, hash) ? options : null;
+    }
+  }
+  catch
+  {
+    return null;
+  }
+}
+
+public bool Verify(object password = null, params object[] environment)
+{
+  try
+  {
+    return GetOptions(password, environment) != null;
+  }
+  catch
+  {
+    return false;
+  }
+}
+```
 
 ### Text representation.
 Use the **ToString()** overriden method to get a string containing the key text, ready to be transfering to the end user.  
 The additional **ToString(format)** method is useful for generating a description string in a custom format. Format can include substrings *{data}*, *{hash}* and *{tail}* as substitution parameters, which will be replaced by the corresponding parts of the key.  
 
-### How the key is generated.
-1. Creates an encryption engine using a password and stores the initialization vector in the **Tail** property.  
-2. Next step, expiration date and options are encrypted and the encrypted data is saved into the **Data** property.
-3. Finally, the hashing engine calculates a hash based on the expiration date, password, options and environment and puts it in the **Hash** property. 
+### About conversion objects.
+The method **Serialize(objects)**  deserves a separate mention. In the beginning, I only used strings as key constructor parameters. Over time, I've come to the conclusion that supporting any types is a good idea, since converting them to a string and then representing the strings as bytes entails additional computational overhead and the length of the resulting key. Now the parameters used in the constructor and validation methods are of type **object**. This means that you can pass strings, numbers, bytes and other parameters that can be using as parameters for **Serialize** method to convert them to bytes array. This bytes is used to create the encrypted part of the key (**Data** property) or to calculate the hash (**Hash** property).  
+
+```csharp
+static unsafe byte[] Serialize(params object[] objects)
+{
+  using (MemoryStream memory = new MemoryStream())
+  using (BinaryWriter writer = new BinaryWriter(memory))
+  {
+    foreach (object obj in objects)
+    {
+      if (obj == null) continue;
+      switch (obj)
+      {
+        // using secure string is best solution to manage password
+        case SecureString secureString: 
+          if (secureString == null || secureString.Length == 0)
+            continue;
+          Encoding encoding = new UTF8Encoding();
+          int maxLength = encoding.GetMaxByteCount(secureString.Length);
+          IntPtr destPtr = Marshal.AllocHGlobal(maxLength);
+          IntPtr sourcePtr = Marshal.SecureStringToBSTR(secureString);
+          try
+          {
+            char* chars = (char*)sourcePtr.ToPointer();
+            byte* bptr = (byte*)destPtr.ToPointer();
+            int length = encoding.GetBytes(chars, secureString.Length, bptr, maxLength);
+            byte[] destBytes = new byte[length];
+            for (int i = 0; i < length; ++i)
+            {
+              destBytes[i] = *bptr;
+              bptr++;
+            }
+            writer.Write(destBytes);
+          }
+          finally
+          {
+            Marshal.FreeHGlobal(destPtr);
+            Marshal.ZeroFreeBSTR(sourcePtr);
+          }
+          continue;
+        case string str:
+          if (str.Length > 0)
+            writer.Write(str.ToCharArray());
+          continue;
+        case DateTime date:
+          writer.Write(date.Ticks);
+          continue;
+        case bool @bool:
+          writer.Write(@bool);
+          continue;
+        case short @short:
+          writer.Write(@short);
+          continue;
+        case ushort @ushort:
+          writer.Write(@ushort);
+          continue;
+        case int @int:
+          writer.Write(@int);
+          continue;
+        case uint @uint:
+          writer.Write(@uint);
+          continue;
+        case long @long:
+          writer.Write(@long);
+          continue;
+        case ulong @ulong:
+          writer.Write(@ulong);
+          continue;
+        case float @float:
+          writer.Write(@float);
+          continue;
+        case double @double:
+          writer.Write(@double);
+          continue;
+        case decimal @decimal:
+          writer.Write(@decimal);
+          continue;
+        case byte[] buffer:
+          if (buffer.Length > 0)
+            writer.Write(buffer);
+          continue;
+        case Array array:
+          if (array.Length > 0)
+            foreach (var a in array) writer.Write(Serialize(a));
+          continue;
+        case IConvertible conv:
+          writer.Write(conv.ToString(CultureInfo.InvariantCulture));
+          continue;
+        case IFormattable frm:
+          writer.Write(frm.ToString(null, CultureInfo.InvariantCulture));
+          continue;
+        case Stream stream:
+          stream.CopyTo(stream);
+          continue;
+        default:
+          try
+          {
+            int rawsize = Marshal.SizeOf(obj);
+            byte[] rawdata = new byte[rawsize];
+            GCHandle handle = GCHandle.Alloc(rawdata, GCHandleType.Pinned);
+            Marshal.StructureToPtr(obj, handle.AddrOfPinnedObject(), false);
+            writer.Write(rawdata);
+            handle.Free();
+          }
+          catch(Exception e)
+          {
+            // place here debugging tools
+          }
+          continue;
+      }
+    }
+    writer.Flush();
+    byte[] bytes = memory.ToArray();
+    return bytes;
+  }
+}
+```
+
+### Briefly about built-in classes. 
+| Class | Description |  
+| :---: | :-------- |  
+| ARC4 | Port of cryptography provider designed by Ron Rivest © for encrypt/decrypt the data part. |  
+| SMHasher | Port of Austin Appleby's © MurmurHash3 algorithm for calculating the hash. |  
+| Base32 | Base-32 numeral system encoder (RFC 4648) for converting the key to readeble text. |  
 
 ## Usage.
 ### Example of generating a key.
