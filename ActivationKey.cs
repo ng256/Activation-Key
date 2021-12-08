@@ -31,9 +31,7 @@ namespace System.Security.Cryptography
     public sealed class ActivationKey : IFormattable, ICloneable, IDisposable, IXmlSerializable
     {
         private const int IVSIZE = 4; // Default length of the initialization vector.
-
         private static RNGCryptoServiceProvider _rng;
-
         private static RNGCryptoServiceProvider InternalRng => _rng ?? (_rng = new RNGCryptoServiceProvider());
 
         /// <summary>
@@ -94,25 +92,6 @@ namespace System.Security.Cryptography
                 Tail = iv;
             }
         }
-
-        /*/// <summary>
-        /// Initializes a new instance <see cref = "ActivationKey" />,
-        /// actual for the specified environment parameters.
-        /// </summary>
-        /// <param name = "expirationDate"> The expiration date of this key. </param>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "options">
-        ///  Additional options that determine the capabilities of the program, for example, the number
-        ///  launches or restriction on the use of certain functions. </param>
-        /// <param name = "environment">
-        ///  Additional parameters that define the firmware binding,
-        ///  such as workstation id, application name, etc.
-        /// </param> 
-        public ActivationKey(DateTime expirationDate, SecureString password, object options = null, params object[] environment)
-            : this(expirationDate, Serialize(password), options, environment)
-        {
-        }*/
-
 
         /// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
@@ -385,7 +364,9 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(DateTime expirationDate, byte[] password, object options = null, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public static ActivationKey Create<TAlg, THash>(DateTime expirationDate, byte[] password, object options = null, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             ActivationKey activationKey = new ActivationKey();
             using (SymmetricAlgorithm cryptoAlg = Activator.CreateInstance<TAlg>())
@@ -435,7 +416,9 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(byte[] password, object options = null, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public static ActivationKey Create<TAlg, THash>(byte[] password, object options = null, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             return Create<TAlg, THash>(DateTime.MaxValue, password, options, environment);
         }
@@ -461,7 +444,9 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(DateTime expirationDate, object password, object options = null, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public static ActivationKey Create<TAlg, THash>(DateTime expirationDate, object password, object options = null, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             return Create<TAlg, THash>(expirationDate, Serialize(password), options, environment);
         }
@@ -487,7 +472,9 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(object password, object options = null, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public static ActivationKey Create<TAlg, THash>(object password, object options = null, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             return Create<TAlg, THash>(DateTime.MaxValue, Serialize(password), options, environment);
         }
@@ -512,7 +499,9 @@ namespace System.Security.Cryptography
         /// </typeparam>
         /// <returns> Get options <see langword = "byte []" />,
         /// or <see langword = "null" /> if the activation key is invalid. </returns> 
-        public byte[] GetOptions<TAlg, THash>(byte[] password = null, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public byte[] GetOptions<TAlg, THash>(byte[] password = null, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             if (Data == null || Hash == null || Tail == null)
             {
@@ -585,7 +574,9 @@ namespace System.Security.Cryptography
         /// </typeparam>
         /// <returns> Get options <see langword = "byte []" />,
         /// or <see langword = "null" /> if the activation key is invalid. </returns> 
-        public byte[] GetOptions<TAlg, THash>(object password, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public byte[] GetOptions<TAlg, THash>(object password, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             try
             {
@@ -617,7 +608,9 @@ namespace System.Security.Cryptography
         /// used to get the checksum.
         /// </typeparam>
         /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
-        public bool Verify<TAlg, THash>(byte[] password = null, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public bool Verify<TAlg, THash>(byte[] password = null, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             try
             {
@@ -648,7 +641,9 @@ namespace System.Security.Cryptography
         /// used to get the checksum.
         /// </typeparam>
         /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
-        public bool Verify<TAlg, THash>(object password = null, params object[] environment) where TAlg : SymmetricAlgorithm where THash : HashAlgorithm
+        public bool Verify<TAlg, THash>(object password = null, params object[] environment) 
+            where TAlg : SymmetricAlgorithm 
+            where THash : HashAlgorithm
         {
             try
             {
@@ -665,11 +660,8 @@ namespace System.Security.Cryptography
         private sealed class _ARC4 : IDisposable
         {
             private byte[] _sblock = new byte[256];
-
             private int x = 0;
-
             private int y = 0;
-
             private bool _disposed = false;
 
             private static void Swap(byte[] bytes, int i, int j)
@@ -790,13 +782,10 @@ namespace System.Security.Cryptography
         {
             private const uint SEED = 3735928559u;
 
-            public uint Seed
-            {
-                get;
-            } = 3735928559u;
+            public uint Seed { get; } = SEED;
 
 
-            public _SMHasher(uint seed = 3735928559u)
+            public _SMHasher(uint seed = SEED)
             {
                 Seed = seed;
             }
@@ -907,7 +896,9 @@ namespace System.Security.Cryptography
                     }
                     for (int bitCount = byteCount * 8; bitCount > 0; bitCount -= 5)
                     {
-                        int index = ((bitCount >= 5) ? ((int)(cache >> bitCount - 5) & 0x1F) : ((int)((long)cache & (long)(31 >> 5 - bitCount)) << 5 - bitCount));
+                        int index = ((bitCount >= 5) 
+                            ? ((int)(cache >> bitCount - 5) & 0x1F) 
+                            : ((int)((long)cache & (long)(31 >> 5 - bitCount)) << 5 - bitCount));
                         buffer.Append(_encodingTable[index]);
                     }
                 }
@@ -970,6 +961,7 @@ namespace System.Security.Cryptography
             {
                 Array.Clear(_decodingTable, 0, _decodingTable.Length);
                 _decodingTable = null;
+                _encodingTable = null;
             }
         }
 
