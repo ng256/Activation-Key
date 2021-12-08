@@ -47,19 +47,19 @@ Main initializers of a new instance of ActivationKey look like this:
 public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
 {
   if (password == null) password = new byte[0];
-  byte[] iv = new byte[4]; // initialization vector
+  byte[] iv = new byte[4]; // Initialization vector.
   byte[] key = Serialize(password); // encryption key
-  InternalRng.GetBytes(iv); // randomize bytes
+  InternalRng.GetBytes(iv); // Randomize bytes.
   using (_ARC4 arc4 = new _ARC4(key, iv))
   {
     expirationDate = expirationDate.Date;
     long expirationDateStamp = expirationDate.ToBinary();
-    // encrypting data part of the key
+    // Encrypting data part of the key.
     Data = arc4.Cipher(expirationDateStamp, options);
     _SMHasher mmh3 = new _SMHasher();
-    // calculating hash of the key
+    // Calculating hash of the key.
     Hash = mmh3.GetBytes(expirationDateStamp, password, options, environment, iv);
-    // initialization vector increases the cryptographic strength
+    // Initialization vector increases the cryptographic strength.
     Tail = iv;
   }
 }
@@ -96,14 +96,14 @@ public byte[] GetOptions(object password = null, params object[] environment)
     byte[] key = Serialize(password);
     using (_ARC4 arc4 = new _ARC4(key, Tail))
     {
-      // decrypting the data
+      // Decrypting the data.
       byte[] data = arc4.Cipher(Data);
       int optionsLength = data.Length - 8;
       if (optionsLength < 0)
       {
         return null;
       }
-      // slicing the options from data
+      // Slicing the options from data.
       byte[] options;
       if (optionsLength > 0)
       {
@@ -114,14 +114,14 @@ public byte[] GetOptions(object password = null, params object[] environment)
       {
         options = new byte[0];
       }
-      // checking expiration date
+      // Checking expiration date.
       long expirationDateStamp = BitConverter.ToInt64(data, 0);
       DateTime expirationDate = DateTime.FromBinary(expirationDateStamp);
       if (expirationDate < DateTime.Today)
       {
         return null;
       }
-      // checking the hash for verifying key
+      // Checking the hash for verifying key.
       _SMHasher mmh3 = new _SMHasher();
       byte[] hash = mmh3.GetBytes(expirationDateStamp, password, options, environment, Tail);
       return ByteArrayEquals(Hash, hash) ? options : null;
@@ -164,7 +164,7 @@ static unsafe byte[] Serialize(params object[] objects)
       if (obj == null) continue;
       switch (obj)
       {
-        // using secure string is best solution to manage password
+        // Using secure string is best solution to manage password.
         case SecureString secureString: 
           if (secureString == null || secureString.Length == 0)
             continue;
@@ -191,6 +191,7 @@ static unsafe byte[] Serialize(params object[] objects)
             Marshal.ZeroFreeBSTR(sourcePtr);
           }
           continue;
+        // Generic types.
         case string str:
           if (str.Length > 0)
             writer.Write(str.ToCharArray());
@@ -232,6 +233,7 @@ static unsafe byte[] Serialize(params object[] objects)
           if (buffer.Length > 0)
             writer.Write(buffer);
           continue;
+        // Other types.
         case Array array:
           if (array.Length > 0)
             foreach (var a in array) writer.Write(Serialize(a));
@@ -257,7 +259,7 @@ static unsafe byte[] Serialize(params object[] objects)
           }
           catch(Exception e)
           {
-            // place here debugging tools
+            // Place debugging tools here.
           }
           continue;
       }
@@ -273,10 +275,15 @@ static unsafe byte[] Serialize(params object[] objects)
 | Class | Description |  
 | :---: | :-------- |  
 | ARC4 | Port of cryptography provider designed by Ron Rivest © for encrypt/decrypt the data part. |  
-| SMHasher | Port of Austin Appleby's © MurmurHash3 algorithm for calculating the hash. |  
-| Base32 | Base-32 numeral system encoder (RFC 4648) for converting the key to readeble text. |  
+| SMHasher | Port of Murmur Hash 3 designed by Austin Appleby © algorithm for calculating the hash. |  
+| Base32 | Fork of Base-32 numeral system encoder designed by Denis Zinchenko © for converting the key to readeble text. |  
 
 ## Usage.
+Just add *ActivationKey.cs* source file to your C# project and type the following directive to getting access **ActivationKey** somewhere you need:
+```csharp
+using System.Security.Cryptography;
+```
+
 ### Example of generating a key.
 ```csharp
 // Generating the key. All the parameters passed to the costructor can be omitted.
