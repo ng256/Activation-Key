@@ -4,7 +4,8 @@ The key can be stored as a human readable text for easy transfering to the end u
 Contains methods for generating the cryptography key based on the specified hardware and software binding. An additional feature is the ability to embed any information directly into the key. This information can be recovered as a byte array during key verifying.  
 
 ## Format. 
-Key format: DATA-HASH-TAIL
+Key format: DATA-HASH-TAIL.  
+
 | Part | Description |
 | :----: | :---- |
 | Data | A part of the key encrypted with a password. Contains the key expiration date and application options. |
@@ -65,6 +66,7 @@ public ActivationKey(DateTime expirationDate, object password,
   }
 }
 ```
+
 | Parameter name | Description |
 | :----: | :---- |
 | expirationDate | The expiration date of the activation key. Since this date, any key validation check fails. |
@@ -283,6 +285,7 @@ static unsafe byte[] Serialize(params object[] objects)
 ```
 
 ### Briefly about built-in classes. 
+
 | Class | Description |  
 | :---: | :-------- |  
 | ARC4 | Port of cryptography provider designed by Ron Rivest © for encrypt/decrypt the data part. |  
