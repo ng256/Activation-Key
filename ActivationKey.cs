@@ -34,6 +34,7 @@ namespace System.Security.Cryptography
         private static RNGCryptoServiceProvider _rng;
         private static RNGCryptoServiceProvider InternalRng => _rng ?? (_rng = new RNGCryptoServiceProvider());
 
+
         /// <summary>
         /// Password-encrypted part of the activation key. Contains expiration date of key and stored options.
         /// </summary>
@@ -62,6 +63,13 @@ namespace System.Security.Cryptography
         }
 
         /// <summary>
+        /// Initializes a new instance <see cref = "ActivationKey" />.
+        /// </summary> 
+        public ActivationKey()
+        {
+        }
+
+        /// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
         /// actual for the specified environment parameters.
         /// </summary>
@@ -74,15 +82,16 @@ namespace System.Security.Cryptography
         ///  Additional parameters that define the firmware binding,
         ///  such as workstation id, application name, etc.
         /// </param> 
-        public ActivationKey(DateTime expirationDate, byte[] password, object options = null, params object[] environment)
+        public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
         {
             if (password == null)
             {
                 password = new byte[0];
             }
             byte[] iv = new byte[IVSIZE];
+            byte[] key = Serialize(password);
             InternalRng.GetBytes(iv);
-            using (_ARC4 arc4 = new _ARC4(password, iv))
+            using (_ARC4 arc4 = new _ARC4(key, iv))
             {
                 expirationDate = expirationDate.Date;
                 long expirationDateStamp = expirationDate.ToBinary();
@@ -91,58 +100,6 @@ namespace System.Security.Cryptography
                 Hash = mmh3.GetBytes(expirationDateStamp, password, options, environment, iv);
                 Tail = iv;
             }
-        }
-
-        /// <summary>
-        /// Initializes a new instance <see cref = "ActivationKey" />,
-        /// actual for the specified date without environment parameters.
-        /// </summary>
-        /// <param name = "expirationDate"> The expiration date of this key. </param> 
-        public ActivationKey(DateTime expirationDate)
-            : this(expirationDate, null, null, null)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance <see cref = "ActivationKey" />.
-        /// </summary> 
-        public ActivationKey()
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance <see cref = "ActivationKey" />,
-        /// actual for the specified environment parameters.
-        /// </summary>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "options">
-        /// Additional options that determine the capabilities of the program, for example, the number
-        /// launches or restriction on the use of certain functions. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param> 
-        public ActivationKey(byte[] password, object options = null, params object[] environment)
-            : this(DateTime.MaxValue, password, options, environment)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance <see cref = "ActivationKey" />,
-        /// actual for the specified environment parameters.
-        /// </summary>
-        /// <param name = "expirationDate"> The expiration date of this key. </param>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "options">
-        /// Additional options that determine the capabilities of the program, for example, the number
-        /// launches or restriction on the use of certain functions. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param> 
-        public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
-            : this(expirationDate, Serialize(password), options, environment)
-        {
         }
 
         /// <summary>
@@ -164,6 +121,16 @@ namespace System.Security.Cryptography
 
         /// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
+        /// actual for the specified date without environment parameters.
+        /// </summary>
+        /// <param name = "expirationDate"> The expiration date of this key. </param> 
+        public ActivationKey(DateTime expirationDate)
+            : this(expirationDate, null, null, null)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance <see cref = "ActivationKey" />,
         /// using the constituent parts of the previously generated key.
         /// </summary>
         /// <param name = "data"> Encrypted part of the key. </param>
@@ -171,9 +138,9 @@ namespace System.Security.Cryptography
         /// <param name = "tail"> Key initialization vector. </param> 
         public ActivationKey(byte[] data, byte[] hash, byte[] tail)
         {
-            Data = data ?? throw new ArgumentNullException("data");
-            Hash = hash ?? throw new ArgumentNullException("hash");
-            Tail = tail ?? throw new ArgumentNullException("tail");
+            Data = data ?? throw new ArgumentNullException(nameof(data));
+            Hash = hash ?? throw new ArgumentNullException(nameof(hash));
+            Tail = tail ?? throw new ArgumentNullException(nameof(tail));
         }
 
         /// <summary>
@@ -198,11 +165,11 @@ namespace System.Security.Cryptography
                             Tail = base32.Decode(tail);
                             return;
                         }
-                        throw new ArgumentException(null, "tail");
+                        throw new ArgumentException(null, nameof(tail));
                     }
-                    throw new ArgumentException(null, "hash");
+                    throw new ArgumentException(null, nameof(hash));
                 }
-                throw new ArgumentException(null, "data");
+                throw new ArgumentException(null, nameof(data));
             }
         }
 
@@ -228,7 +195,7 @@ namespace System.Security.Cryptography
         /// </param>
         /// <returns> Get options <see langword = "byte []" />,
         /// or <see langword = "null" /> if the activation key is invalid. </returns> 
-        public byte[] GetOptions(byte[] password = null, params object[] environment)
+        public byte[] GetOptions(object password = null, params object[] environment)
         {
             if (Data == null || Hash == null || Tail == null)
             {
@@ -236,7 +203,7 @@ namespace System.Security.Cryptography
             }
             try
             {
-                using (_ARC4 arc4 = new _ARC4(password, Tail))
+                using (_ARC4 arc4 = new _ARC4(Serialize(password), Tail))
                 {
                     byte[] data = arc4.Cipher(Data);
                     int optionsLength = data.Length - 8;
@@ -281,56 +248,8 @@ namespace System.Security.Cryptography
         /// Additional parameters that define the firmware binding,
         /// such as workstation id, application name, etc.
         /// </param>
-        /// <returns> Get options <see langword = "byte []" />,
-        /// or <see langword = "null" /> if the activation key is invalid. </returns> 
-        public byte[] GetOptions(object password, params object[] environment)
-        {
-            try
-            {
-                byte[] key = Serialize(password);
-                return GetOptions(key, environment);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Checks if the activation key is valid,
-        /// represented by the current instance <see cref = "ActivationKey" />
-        /// for the specified environment parameters.
-        /// </summary>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param>
         /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
-        public bool Verify(byte[] password = null, params object[] environment)
-        {
-            try
-            {
-                return GetOptions(password, environment) != null;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Checks if the activation key is valid,
-        /// represented by the current instance <see cref = "ActivationKey" />
-        /// for the specified environment parameters.
-        /// </summary>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param>
-        /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
-        public bool Verify(SecureString password = null, params object[] environment)
+        public bool Verify(object password = null, params object[] environment)
         {
             try
             {
@@ -364,8 +283,8 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(DateTime expirationDate, byte[] password, object options = null, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
+        public static ActivationKey Create<TAlg, THash>(DateTime expirationDate, object password, object options = null, params object[] environment)
+            where TAlg : SymmetricAlgorithm
             where THash : HashAlgorithm
         {
             ActivationKey activationKey = new ActivationKey();
@@ -376,7 +295,7 @@ namespace System.Security.Cryptography
                     password = new byte[0];
                 }
                 activationKey.Tail = cryptoAlg.IV;
-                using (DeriveBytes deriveBytes = new PasswordDeriveBytes(password, activationKey.Tail))
+                using (DeriveBytes deriveBytes = new PasswordDeriveBytes(Serialize(password), activationKey.Tail))
                 {
                     cryptoAlg.Key = deriveBytes.GetBytes(cryptoAlg.KeySize / 8);
                 }
@@ -416,64 +335,8 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(byte[] password, object options = null, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
-            where THash : HashAlgorithm
-        {
-            return Create<TAlg, THash>(DateTime.MaxValue, password, options, environment);
-        }
-
-        /// <summary>
-        /// Initializes a new instance <see cref = "ActivationKey" />,
-        /// actual for the specified environment parameters.
-        /// </summary>
-        /// <param name = "expirationDate"> The expiration date of this key. </param>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "options">
-        /// Additional options that determine the capabilities of the program, for example, the number
-        /// launches or restriction on the use of certain functions. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param>
-        /// <typeparam name = "TAlg">
-        /// Algorithm type <see cref = "SymmetricAlgorithm" />,
-        /// used to encrypt data.
-        /// </typeparam>
-        /// <typeparam name = "THash">
-        /// Algorithm type <see cref = "HashAlgorithm" />,
-        /// used to get the checksum.
-        /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(DateTime expirationDate, object password, object options = null, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
-            where THash : HashAlgorithm
-        {
-            return Create<TAlg, THash>(expirationDate, Serialize(password), options, environment);
-        }
-
-        /// <summary>
-        /// Initializes a new instance <see cref = "ActivationKey" />,
-        /// actual for the specified environment parameters.
-        /// </summary>
-        /// <param name = "expirationDate"> The expiration date of this key. </param>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "options">
-        /// Additional options that determine the capabilities of the program, for example, the number
-        /// launches or restriction on the use of certain functions. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param>
-        /// <typeparam name = "TAlg">
-        /// Algorithm type <see cref = "SymmetricAlgorithm" />,
-        /// used to encrypt data.
-        /// </typeparam>
-        /// <typeparam name = "THash">
-        /// Algorithm type <see cref = "HashAlgorithm" />,
-        /// used to get the checksum.
-        /// </typeparam> 
-        public static ActivationKey Create<TAlg, THash>(object password, object options = null, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
+        public static ActivationKey Create<TAlg, THash>(object password, object options = null, params object[] environment)
+            where TAlg : SymmetricAlgorithm
             where THash : HashAlgorithm
         {
             return Create<TAlg, THash>(DateTime.MaxValue, Serialize(password), options, environment);
@@ -499,8 +362,8 @@ namespace System.Security.Cryptography
         /// </typeparam>
         /// <returns> Get options <see langword = "byte []" />,
         /// or <see langword = "null" /> if the activation key is invalid. </returns> 
-        public byte[] GetOptions<TAlg, THash>(byte[] password = null, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
+        public byte[] GetOptions<TAlg, THash>(object password = null, params object[] environment)
+            where TAlg : SymmetricAlgorithm
             where THash : HashAlgorithm
         {
             if (Data == null || Hash == null || Tail == null)
@@ -512,7 +375,7 @@ namespace System.Security.Cryptography
                 using (SymmetricAlgorithm cryptoAlg = Activator.CreateInstance<TAlg>())
                 {
                     cryptoAlg.IV = Tail;
-                    using (DeriveBytes deriveBytes = new PasswordDeriveBytes(password, Tail))
+                    using (DeriveBytes deriveBytes = new PasswordDeriveBytes(Serialize(password), Tail))
                     {
                         cryptoAlg.Key = deriveBytes.GetBytes(cryptoAlg.KeySize / 8);
                     }
@@ -572,77 +435,9 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam>
-        /// <returns> Get options <see langword = "byte []" />,
-        /// or <see langword = "null" /> if the activation key is invalid. </returns> 
-        public byte[] GetOptions<TAlg, THash>(object password, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
-            where THash : HashAlgorithm
-        {
-            try
-            {
-                byte[] passwordBytes = Serialize(password);
-                return GetOptions<TAlg, THash>(passwordBytes, environment);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Checks if the activation key is valid,
-        /// represented by the current instance <see cref = "ActivationKey" />
-        /// for the specified environment parameters.
-        /// </summary>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param>
-        /// <typeparam name = "TAlg">
-        /// Algorithm type <see cref = "SymmetricAlgorithm" />,
-        /// used to encrypt data.
-        /// </typeparam>
-        /// <typeparam name = "THash">
-        /// Algorithm type <see cref = "HashAlgorithm" />,
-        /// used to get the checksum.
-        /// </typeparam>
         /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
-        public bool Verify<TAlg, THash>(byte[] password = null, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
-            where THash : HashAlgorithm
-        {
-            try
-            {
-                return GetOptions<TAlg, THash>(password, environment) != null;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Checks if the activation key is valid,
-        /// represented by the current instance <see cref = "ActivationKey" />
-        /// for the specified environment parameters.
-        /// </summary>
-        /// <param name = "password"> Password. </param>
-        /// <param name = "environment">
-        /// Additional parameters that define the firmware binding,
-        /// such as workstation id, application name, etc.
-        /// </param>
-        /// <typeparam name = "TAlg">
-        /// Algorithm type <see cref = "SymmetricAlgorithm" />,
-        /// used to encrypt data.
-        /// </typeparam>
-        /// <typeparam name = "THash">
-        /// Algorithm type <see cref = "HashAlgorithm" />,
-        /// used to get the checksum.
-        /// </typeparam>
-        /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
-        public bool Verify<TAlg, THash>(object password = null, params object[] environment) 
-            where TAlg : SymmetricAlgorithm 
+        public bool Verify<TAlg, THash>(object password = null, params object[] environment)
+            where TAlg : SymmetricAlgorithm
             where THash : HashAlgorithm
         {
             try
@@ -656,7 +451,7 @@ namespace System.Security.Cryptography
             }
         }
 
-
+        // Port of cryptography provider designed by Ron Rives (C)
         private sealed class _ARC4 : IDisposable
         {
             private byte[] _sblock = new byte[256];
@@ -745,49 +540,24 @@ namespace System.Security.Cryptography
                 return Cipher(Serialize(objects));
             }
 
-            private void Dispose(bool disposing)
-            {
-                if (disposing && !_disposed)
-                {
-                    try
-                    {
-                        if (_sblock != null)
-                        {
-                            Array.Clear(_sblock, 0, 256);
-                        }
-                    }
-                    finally
-                    {
-                        _disposed = true;
-                    }
-                }
-                _sblock = null;
-                x = -1;
-                y = -1;
-            }
-
             public void Dispose()
             {
-                Dispose(true);
+                if (_sblock != null) Array.Clear(_sblock, 0, 256);
+                x = -1;
+                y = -1;
                 GC.SuppressFinalize(this);
-            }
-
-            ~_ARC4()
-            {
-                Dispose(false);
             }
         }
 
-        private sealed class _SMHasher // Port of Austin Appleby's MurmurHash3 algorithm.
+        // Port of MurmurHash3 algorithm designed by Austin Appleby(C).
+        private sealed class _SMHasher
         {
             private const uint SEED = 3735928559u;
-
-            public uint Seed { get; } = SEED;
-
+            private readonly uint _seed = SEED;
 
             public _SMHasher(uint seed = SEED)
             {
-                Seed = seed;
+                _seed = seed;
             }
 
             public uint GetUInt32(Stream stream)
@@ -796,7 +566,7 @@ namespace System.Security.Cryptography
                 {
                     return 0u;
                 }
-                uint res = Seed;
+                uint res = _seed;
                 uint totalLength = 0u;
                 using (BinaryReader reader = new BinaryReader(stream))
                 {
@@ -856,6 +626,7 @@ namespace System.Security.Cryptography
             }
         }
 
+        // Fork of encoder designed by Denis Zinchenko (C)
         private sealed class _Base32 : IDisposable
         {
             private string _encodingTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456";
@@ -896,8 +667,8 @@ namespace System.Security.Cryptography
                     }
                     for (int bitCount = byteCount * 8; bitCount > 0; bitCount -= 5)
                     {
-                        int index = ((bitCount >= 5) 
-                            ? ((int)(cache >> bitCount - 5) & 0x1F) 
+                        int index = ((bitCount >= 5)
+                            ? ((int)(cache >> bitCount - 5) & 0x1F)
                             : ((int)((long)cache & (long)(31 >> 5 - bitCount)) << 5 - bitCount));
                         buffer.Append(_encodingTable[index]);
                     }
@@ -959,14 +730,15 @@ namespace System.Security.Cryptography
 
             public void Dispose()
             {
-                Array.Clear(_decodingTable, 0, _decodingTable.Length);
+                if (_decodingTable != null) Array.Clear(_decodingTable, 0, _decodingTable.Length);
                 _decodingTable = null;
                 _encodingTable = null;
             }
         }
 
+        // You can improve it however you find it necessary for your own stuff.
         [SecurityCritical]
-        static unsafe byte[] Serialize(params object[] objects)
+        internal static unsafe byte[] Serialize(params object[] objects)
         {
             using (MemoryStream memory = new MemoryStream())
             using (BinaryWriter writer = new BinaryWriter(memory))
@@ -1157,21 +929,10 @@ namespace System.Security.Cryptography
             using (_Base32 base32 = new _Base32())
             {
                 return format
-                    .Replace("{data}", base32.Encode(Data))
-                    .Replace("{hash}", base32.Encode(Hash))
-                    .Replace("{tail}", base32.Encode(Tail));
+                    .Replace("%D", base32.Encode(Data))
+                    .Replace("%H", base32.Encode(Hash))
+                    .Replace("%T", base32.Encode(Tail));
             }
-        }
-
-        /// <inheritdoc cref="IDisposable.Dispose()"/>
-        public void Dispose()
-        {
-            if (Data != null) Array.Clear(Data, 0, Data.Length);
-            if (Hash != null) Array.Clear(Hash, 0, Hash.Length);
-            if (Tail != null) Array.Clear(Tail, 0, Tail.Length);
-            Data = null;
-            Hash = null;
-            Tail = null;
         }
 
         /// <inheritdoc cref="IXmlSerializable.GetSchema()"/>
@@ -1190,6 +951,17 @@ namespace System.Security.Cryptography
         public void WriteXml(XmlWriter writer)
         {
             writer.WriteString(ToString());
+        }
+
+        /// <inheritdoc cref="IDisposable.Dispose()"/>
+        public void Dispose()
+        {
+            if (Data != null) Array.Clear(Data, 0, Data.Length);
+            if (Hash != null) Array.Clear(Hash, 0, Hash.Length);
+            if (Tail != null) Array.Clear(Tail, 0, Tail.Length);
+            Data = null;
+            Hash = null;
+            Tail = null;
         }
     }
 
