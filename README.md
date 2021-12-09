@@ -44,7 +44,8 @@ It is also possible to create a key without any limits.
 ### Initialization.
 Main initializers of a new instance of ActivationKey look like this:
 ```csharp
-public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
+public ActivationKey(DateTime expirationDate, object password, 
+  object options = null, params object[] environment)
 {
   if (password == null) password = new byte[0];
   byte[] iv = new byte[4]; // Initialization vector.
