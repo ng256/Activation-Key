@@ -6,7 +6,7 @@ Contains methods for generating the cryptography key based on the specified hard
 ## Format. 
 Key format: DATA-HASH-TAIL
 | Part | Description |
-|:----:|:----|
+| :----: | :---- |
 | Data | A part of the key encrypted with a password. Contains the key expiration date and application options. |
 | Hash | Checksum of the key expiration date, password, options and environment parameters. |
 | Tail | Initialization vector that used to decode the data. |
