@@ -148,12 +148,22 @@ public bool Verify(object password = null, params object[] environment)
 
 ### Text representation.
 Use the **ToString()** overriden method to get a string containing the key text, ready to be transfering to the end user.  
-The additional **ToString(format)** method is useful for generating a description string in a custom format. Format can include substrings *{data}*, *{hash}* and *{tail}* as substitution parameters, which will be replaced by the corresponding parts of the key.  
+The additional **ToString(format)** method is useful for generating a description string in a custom format. Format can include substrings *"%D"* as data, *"%H"* as hash and *"%T"* as tail, which will be replaced by the corresponding parts of the key. For example:
+```csharp
+activationKey.ToString(); 
+// returns KCATBZ14Y-VGDM2ZQ-ATSVYMI
+activationKey.ToString("Key data is %D,\r\nkey hash is %H,\r\nkey tail is %T."); 
+// returns
+// Key data is KCATBZ14Y, 
+// key hash is VGDM2ZQ,
+// key tail is ATSVYMI.
+```
 
 ### About conversion objects.
 The method **Serialize(objects)**  deserves a separate mention. In the beginning, I only used strings as key constructor parameters. Over time, I've come to the conclusion that supporting any types is a good idea, since converting them to a string and then representing the strings as bytes entails additional computational overhead and the length of the resulting key. Now the parameters used in the constructor and validation methods are of type **object**. This means that you can pass strings, numbers, bytes and other parameters that can be using as parameters for **Serialize** method to convert them to bytes array. This bytes is used to create the encrypted part of the key (**Data** property) or to calculate the hash (**Hash** property).  
 
 ```csharp
+// You can improve it however you find it necessary for your own stuff.
 static unsafe byte[] Serialize(params object[] objects)
 {
   using (MemoryStream memory = new MemoryStream())
@@ -286,47 +296,73 @@ using System.Security.Cryptography;
 
 ### Example of generating a key.
 ```csharp
+string macAddress = NetworkInterface // Getting first MAC address
+  NetworkInterface.
+  GetAllNetworkInterfaces()
+  .FirstOrDefault(nic => nic.OperationalStatus == OperationalStatus.Up 
+    && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+  ?.GetPhysicalAddress()
+  .ToString();
+const string appName = "myAppName"; // The application name.
+
 // Generating the key. All the parameters passed to the costructor can be omitted.
 ActivationKey activationKey = new ActivationKey(
-expirationDate:
+//expirationDate:
 DateTime.Now.AddMonths(1),       // Expiration date 1 month later.
                                  // Pass DateTime.Max for unlimited use.
-password:
+//password:
 "password",                      // Password protection;
                                  // this parameter can be null.
-options:
-"permitSave",                    // Option that allows save data, for example. 
-                                 // Pass here numbers, flags, text
+//options:
+"john",                          // Registered user name, for example.
+                                 // Pass here numbers, flags, text or other
                                  // that you want to restore from the activation key.
-environment:
-"myAppName", "01:02:03:04:05:06" // App name and MAC adress.
+//environment:
+appName, macAddress              // Application name and MAC adress.
                                  // Pass here information about binding the key 
                                  // to a specific software and hardware environment. 
 );
 ```
 This code creates an activation key that looks like this:  
-A5IE5SYJQIZEM4CTIHRWX2FDV6LO5-KAGJRCQ-KRW3MSA. 
+XO1UCW1FHEBVYZWLW1HA-RQUJ3EY-BBRNV2Q.
 
 ### Example of checking a key.
 ```csharp
+// Thus, a simple check of the key for validity is carried out.
+bool checkKey = activationKey.Verify("password", appName, macAddress);
+if (!checkKey)
+{
+  MessageBox.Show("Your copy is not activated! Please get a valid activation key.");
+  Application.Exit();
+}
+```
+
+### Example of checking a key using login and password.
+```csharp
 // This way the options are restored as a byte array or null if the key is not valid. 
 // If the key has no embeded options, an empty array will be returned.
-byte[] restoredOptions = activationKey.GetOptions("password", "myAppName", "01:02:03:04:05:06");
-
-// Thus, a simple check of the key for validity is carried out.
-bool checkKey = activationKey.Verify("password", "myAppName", "01:02:03:04:05:06");
+Console.WriteLine("Login: ");
+string login = Console.ReadLine();
+Console.WriteLine("Password: ");
+string password = Console.ReadLine();
+byte[] bytes = activationKey.GetOptions(password, appName, macAddress);
+if (bytes == null || Encoding.UTF8.GetString(bytes) != login)
+{
+  Console.Error.WriteLine("You are unregistered user.");
+  Environment.Exit(1); // Exit process with error level 1.
+}
 ```
 
 ### Example of using custom encrypt and hash algorithms.
 ```csharp
 ActivationKey activationKey = ActivationKey.Create<AesManaged, MD5CryptoServiceProvider>
-  (DateTime.Now.AddMonths(1), "password", "permitSave", "myAppName", "01:02:03:04:05:06");
+  (DateTime.Now.AddMonths(1), "password", "john", "myAppName", "A1B2C3D4E5F6");
 
 byte[] restoredOptions = activationKey.GetOptions<AesManaged, MD5CryptoServiceProvider>
-  ("password", "myAppName", "01:02:03:04:05:06");
+  ("password", "myAppName", "A1B2C3D4E5F6");
 
 bool valid = activationKey.Verify<AesManaged, MD5CryptoServiceProvider>
-  ("password", "myAppName", "01:02:03:04:05:06");
+  ("password", "myAppName", "A1B2C3D4E5F6");
 ```
 This code creates an activation key that looks like this:  
 HWAPFVNL3XG5WPO3U3SHNWRBFDWZXPTSRK2BA5U4KU1QSBDTGWPQ-OEZHVY6VM4YGAW2CFZ31SDQ6CM-IO5Y4TIMIJFJBOOGEFUQI53T1M  
