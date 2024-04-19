@@ -1,5 +1,5 @@
 /*************************************************************************************************************
-System.Security.Cryptography.ActivationKey
+System.Security.Cryptography.ActivationKey v 1.1
 Represents the activation key used to protect the licensed application.
 Contains methods for updating the key based on the specified hardware and software environment.
 
@@ -8,14 +8,18 @@ Key format: DATA-HASH-TAIL. For Example, KCATBZ14Y4UEA-VGDM2ZQ-ATSVYMI.
 Data 	A part of the key encrypted with a password. Contains the key expiration date and application options.
 Hash 	Checksum of the key expiration date, password, options and environment parameters.
 Tail	Initialization vector that used to decode the data.
+
+Distributed under MIT license (https://mit-license.org/)
+© 2021 Pavel Bashkardin (https://github.com/ng256)
 **************************************************************************************************************/
 
-using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
+using System.Resources;
 using System.Runtime.InteropServices;
-using System.Security;
 using System.Text;
 using System.Xml;
 using System.Xml.Schema;
@@ -28,12 +32,13 @@ namespace System.Security.Cryptography
     /// </summary>
     [Serializable]
     [TypeConverter(typeof(ActivationKeyConverter))]
+    [DebuggerDisplay("{ToString()}")]
     public sealed class ActivationKey : IFormattable, ICloneable, IDisposable, IXmlSerializable
     {
         private const int IVSIZE = 4; // Default length of the initialization vector.
-        private static RNGCryptoServiceProvider _rng;
+        private static ResourceSet _mscorlib = null; // Mscorlib resources.
+        private static RNGCryptoServiceProvider _rng = null;
         private static RNGCryptoServiceProvider InternalRng => _rng ?? (_rng = new RNGCryptoServiceProvider());
-
 
         /// <summary>
         /// Password-encrypted part of the activation key. Contains expiration date of key and stored options.
@@ -63,6 +68,11 @@ namespace System.Security.Cryptography
         }
 
         /// <summary>
+        /// Returns <see langword="true" /> if this instance of <see cref = "ActivationKey" /> contains the required data and it's ready to be verified.
+        /// </summary>
+        public bool Ready => IsNullOrEmpty(Data) || IsNullOrEmpty(Hash) || IsNullOrEmpty(Tail);
+
+        /// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />.
         /// </summary> 
         public ActivationKey()
@@ -84,10 +94,7 @@ namespace System.Security.Cryptography
         /// </param> 
         public ActivationKey(DateTime expirationDate, object password, object options = null, params object[] environment)
         {
-            if (password == null)
-            {
-                password = new byte[0];
-            }
+            if (password == null) password = new byte[0];
             byte[] iv = new byte[IVSIZE];
             byte[] key = Serialize(password);
             InternalRng.GetBytes(iv);
@@ -135,12 +142,17 @@ namespace System.Security.Cryptography
         /// </summary>
         /// <param name = "data"> Encrypted part of the key. </param>
         /// <param name = "hash"> Key checksum. </param>
-        /// <param name = "tail"> Key initialization vector. </param> 
+        /// <param name = "tail"> Key initialization vector. </param>
+        /// <exception cref="ArgumentException">One of the arguments is null or empty.</exception>
         public ActivationKey(byte[] data, byte[] hash, byte[] tail)
         {
-            Data = data ?? throw new ArgumentNullException(nameof(data));
-            Hash = hash ?? throw new ArgumentNullException(nameof(hash));
-            Tail = tail ?? throw new ArgumentNullException(nameof(tail));
+            if (IsNullOrEmpty(data)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullArray"), nameof(data));
+            if (IsNullOrEmpty(hash)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullArray"), nameof(hash));
+            if (IsNullOrEmpty(tail)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullArray"), nameof(tail));
+
+            Data = data;
+            Hash = hash;
+            Tail = tail;
         }
 
         /// <summary>
@@ -150,26 +162,18 @@ namespace System.Security.Cryptography
         /// <param name = "data"> Encrypted part of the key. </param>
         /// <param name = "hash"> Key checksum. </param>
         /// <param name = "tail"> Key initialization vector. </param> 
+        /// <exception cref="ArgumentException">One of the arguments is null or empty.</exception>
         public ActivationKey(string data, string hash, string tail)
         {
+            if (string.IsNullOrEmpty(data)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(data));
+            if (string.IsNullOrEmpty(hash)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(hash));
+            if (string.IsNullOrEmpty(tail)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(tail));
+
             using (_Base32 base32 = new _Base32())
             {
-                if (!string.IsNullOrEmpty(data))
-                {
-                    Data = base32.Decode(data);
-                    if (!string.IsNullOrEmpty(hash))
-                    {
-                        Hash = base32.Decode(hash);
-                        if (!string.IsNullOrEmpty(tail))
-                        {
-                            Tail = base32.Decode(tail);
-                            return;
-                        }
-                        throw new ArgumentException(null, nameof(tail));
-                    }
-                    throw new ArgumentException(null, nameof(hash));
-                }
-                throw new ArgumentException(null, nameof(data));
+                Data = base32.Decode(data.ToUpperInvariant());
+                Hash = base32.Decode(hash.ToUpperInvariant());
+                Tail = base32.Decode(tail.ToUpperInvariant());
             }
         }
 
@@ -178,9 +182,11 @@ namespace System.Security.Cryptography
         /// using the text representation of the previously generated key.
         /// </summary>
         /// <param name = "activationKey"> A string containing the activation key. </param> 
+        /// <exception cref="ArgumentException">Argument <paramref name="activationKey"/> is null or empty.</exception>
         public ActivationKey(string activationKey)
         {
-            InternalParse(activationKey);
+            if (string.IsNullOrEmpty(activationKey)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(activationKey));
+            InternalParse(activationKey.ToUpperInvariant());
         }
 
         /// <summary>
@@ -193,14 +199,12 @@ namespace System.Security.Cryptography
         /// Additional parameters that define the firmware binding,
         /// such as workstation id, application name, etc.
         /// </param>
-        /// <returns> Get options <see langword = "byte []" />,
+        /// <returns> Decrypted options <see langword = "byte []" />,
         /// or <see langword = "null" /> if the activation key is invalid. </returns> 
         public byte[] GetOptions(object password = null, params object[] environment)
         {
-            if (Data == null || Hash == null || Tail == null)
-            {
-                return null;
-            }
+            if (!Ready) return null;
+
             try
             {
                 using (_ARC4 arc4 = new _ARC4(Serialize(password), Tail))
@@ -240,6 +244,25 @@ namespace System.Security.Cryptography
 
         /// <summary>
         /// Checks if the activation key is valid,
+        /// represented by string <paramref name="activationKey"/>
+        /// for the specified environment parameters and returns the decrypted application options.
+        /// </summary>
+        /// <param name = "activationKey"> A string containing the activation key. </param> 
+        /// <param name = "password"> Password. </param>
+        /// <param name = "environment">
+        /// Additional parameters that define the firmware binding,
+        /// such as workstation id, application name, etc.
+        /// </param>
+        /// <returns> Decrypted options <see langword = "byte []" />,
+        /// or <see langword = "null" /> if the activation key is invalid. </returns>
+        /// <exception cref="ArgumentException">Argument <paramref name="activationKey"/> is null or empty.</exception>
+        public static byte[] GetOptions(string activationKey, object password = null, params object[] environment)
+        {
+            using (ActivationKey key = new ActivationKey(activationKey)) return key.GetOptions(password, environment);
+        }
+
+        /// <summary>
+        /// Checks if the activation key is valid,
         /// represented by the current instance <see cref = "ActivationKey" />
         /// for the specified environment parameters.
         /// </summary>
@@ -261,6 +284,23 @@ namespace System.Security.Cryptography
             }
         }
 
+        /// <summary>
+        /// Checks if the activation key is valid,
+        /// represented by string <paramref name="activationKey"/>
+        /// for the specified environment parameters.
+        /// </summary>
+        /// <param name = "activationKey"> A string containing the activation key. </param> 
+        /// <param name = "password"> Password. </param>
+        /// <param name = "environment">
+        /// Additional parameters that define the firmware binding,
+        /// such as workstation id, application name, etc.
+        /// </param>
+        /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
+        /// <exception cref="ArgumentException">Argument <paramref name="activationKey"/> is null or empty.</exception>
+        public static bool Verify(string activationKey, object password = null, params object[] environment)
+        {
+            using (ActivationKey key = new ActivationKey(activationKey)) return key.Verify(password, environment);
+        }
 
         /// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
@@ -336,8 +376,8 @@ namespace System.Security.Cryptography
         /// used to get the checksum.
         /// </typeparam> 
         public static ActivationKey Create<TAlg, THash>(object password, object options = null, params object[] environment)
-            where TAlg : SymmetricAlgorithm
-            where THash : HashAlgorithm
+        where TAlg : SymmetricAlgorithm
+        where THash : HashAlgorithm
         {
             return Create<TAlg, THash>(DateTime.MaxValue, Serialize(password), options, environment);
         }
@@ -360,16 +400,14 @@ namespace System.Security.Cryptography
         /// Algorithm type <see cref = "HashAlgorithm" />,
         /// used to get the checksum.
         /// </typeparam>
-        /// <returns> Get options <see langword = "byte []" />,
+        /// <returns> Decrypted options <see langword = "byte []" />,
         /// or <see langword = "null" /> if the activation key is invalid. </returns> 
         public byte[] GetOptions<TAlg, THash>(object password = null, params object[] environment)
             where TAlg : SymmetricAlgorithm
             where THash : HashAlgorithm
         {
-            if (Data == null || Hash == null || Tail == null)
-            {
-                return null;
-            }
+            if (!Ready) return null;
+
             try
             {
                 using (SymmetricAlgorithm cryptoAlg = Activator.CreateInstance<TAlg>())
@@ -419,6 +457,35 @@ namespace System.Security.Cryptography
 
         /// <summary>
         /// Checks if the activation key is valid,
+        /// represented by by string <paramref name="activationKey"/>
+        /// for the specified environment parameters and returns the decrypted application options ..
+        /// </summary>
+        /// <param name = "activationKey"> A string containing the activation key. </param> 
+        /// <param name = "password"> Password. </param>
+        /// <param name = "environment">
+        /// Additional parameters that define the firmware binding,
+        /// such as workstation id, application name, etc.
+        /// </param>
+        /// <typeparam name = "TAlg">
+        /// Algorithm type <see cref = "SymmetricAlgorithm" />,
+        /// used to encrypt data.
+        /// </typeparam>
+        /// <typeparam name = "THash">
+        /// Algorithm type <see cref = "HashAlgorithm" />,
+        /// used to get the checksum.
+        /// </typeparam>
+        /// <returns> Decrypted options <see langword = "byte []" />,
+        /// or <see langword = "null" /> if the activation key is invalid. </returns> 
+        /// <exception cref="ArgumentException">Argument <paramref name="activationKey"/> is null or empty.</exception>
+        public static byte[] GetOptions<TAlg, THash>(string activationKey, object password = null, params object[] environment)
+            where TAlg : SymmetricAlgorithm
+            where THash : HashAlgorithm
+        {
+            using (ActivationKey key = Create<TAlg, THash>(activationKey)) return key.GetOptions<TAlg, THash>(password, environment);
+        }
+
+        /// <summary>
+        /// Checks if the activation key is valid,
         /// represented by the current instance <see cref = "ActivationKey" />
         /// for the specified environment parameters.
         /// </summary>
@@ -451,14 +518,43 @@ namespace System.Security.Cryptography
             }
         }
 
+        /// <summary>
+        /// Checks if the activation key is valid,
+        /// represented by by string <paramref name="activationKey"/>
+        /// for the specified environment parameters.
+        /// </summary>
+        /// <param name = "activationKey"> A string containing the activation key. </param> 
+        /// <param name = "password"> Password. </param>
+        /// <param name = "environment">
+        /// Additional parameters that define the firmware binding,
+        /// such as workstation id, application name, etc.
+        /// </param>
+        /// <typeparam name = "TAlg">
+        /// Algorithm type <see cref = "SymmetricAlgorithm" />,
+        /// used to encrypt data.
+        /// </typeparam>
+        /// <typeparam name = "THash">
+        /// Algorithm type <see cref = "HashAlgorithm" />,
+        /// used to get the checksum.
+        /// </typeparam>
+        /// <returns> <see langword = "true" /> if the activation key is valid. </returns> 
+        /// <exception cref="ArgumentException">Argument <paramref name="activationKey"/> is null or empty.</exception>
+        public static bool Verify<TAlg, THash>(string activationKey, object password = null, params object[] environment)
+            where TAlg : SymmetricAlgorithm
+            where THash : HashAlgorithm
+
+        {
+            using (ActivationKey key = Create<TAlg, THash>(activationKey)) return key.Verify<TAlg, THash>(password, environment);
+        }
+
         // Port of cryptography provider designed by Ron Rives (C)
         private sealed class _ARC4 : IDisposable
         {
             private byte[] _sblock = new byte[256];
             private int x = 0;
             private int y = 0;
-            private bool _disposed = false;
 
+            // Swaps the elements of the bytes array with indexes i and j.
             private static void Swap(byte[] bytes, int i, int j)
             {
                 byte t = bytes[i];
@@ -466,6 +562,7 @@ namespace System.Security.Cryptography
                 bytes[j] = t;
             }
 
+            // Performs initialization of the bytes array using the iv array.
             private static void Init(byte[] bytes, byte[] iv)
             {
                 if (iv == null)
@@ -483,6 +580,7 @@ namespace System.Security.Cryptography
                 }
             }
 
+            // Returns a pseudorandom number and change the state.
             private byte NextByte()
             {
                 x = (x + 1) % 256;
@@ -515,6 +613,7 @@ namespace System.Security.Cryptography
                 }
             }
 
+            // XORs each element of the buffer array, shifting its value by the amount returned by the NextByte function.
             private void Cipher(byte[] buffer, int offset, int count)
             {
                 if (count != 0)
@@ -526,6 +625,7 @@ namespace System.Security.Cryptography
                 }
             }
 
+            // Encrypts the buffer array using the Cipher operation.
             public byte[] Cipher(byte[] buffer)
             {
                 int length = buffer.Length;
@@ -535,6 +635,7 @@ namespace System.Security.Cryptography
                 return result;
             }
 
+            // Encrypts data received as an array of objects using the Cipher algorithm.
             public byte[] Cipher(params object[] objects)
             {
                 return Cipher(Serialize(objects));
@@ -560,6 +661,7 @@ namespace System.Security.Cryptography
                 _seed = seed;
             }
 
+            // Calculates a 32-bit hash from a stream.
             public uint GetUInt32(Stream stream)
             {
                 if (stream == null || !stream.CanRead)
@@ -607,6 +709,7 @@ namespace System.Security.Cryptography
                 return res ^ (res >> 16);
             }
 
+            // Calculates a 32-bit hash of the specified bytes.
             public uint GetUInt32(byte[] bytes)
             {
                 using (MemoryStream stream = new MemoryStream(bytes, false))
@@ -615,11 +718,13 @@ namespace System.Security.Cryptography
                 }
             }
 
+            // Calculates a 32-bit hash of the specified objects.
             public uint GetUInt32(params object[] objects)
             {
                 return GetUInt32(Serialize(objects));
             }
 
+            // Calculates a 32-bit hash of the specified objects and returns it as 4 bytes.
             public byte[] GetBytes(params object[] objects)
             {
                 return BitConverter.GetBytes(GetUInt32(objects));
@@ -632,6 +737,7 @@ namespace System.Security.Cryptography
             private string _encodingTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456";
             private byte[] _decodingTable = new byte[128];
 
+            // Initializes the decoding and encoding tables.
             private void InitTable()
             {
                 for (int j = 0; j < _decodingTable.Length; j++)
@@ -649,6 +755,7 @@ namespace System.Security.Cryptography
                 InitTable();
             }
 
+            // converts a byte array to a string using base32 encoding.
             public string Encode(byte[] data)
             {
                 int dataLength;
@@ -676,6 +783,7 @@ namespace System.Security.Cryptography
                 return buffer.ToString();
             }
 
+            // Decodes the data from the buffer string and returns it as a byte array.
             public byte[] Decode(string buffer)
             {
                 if (string.IsNullOrEmpty(buffer))
@@ -705,6 +813,7 @@ namespace System.Security.Cryptography
                 }
             }
 
+            // Parses the string data using the index array and moves the current position to the next character.
             private int CreateIndexByOctetAndMovePosition(ref string data, int currentPosition, ref int[] index)
             {
                 int i = 0;
@@ -736,9 +845,9 @@ namespace System.Security.Cryptography
             }
         }
 
-        // You can improve it however you find it necessary for your own stuff.
+        // Converts objects to a byte array. You can improve it however you find it necessary for your own stuff.
         [SecurityCritical]
-        internal static unsafe byte[] Serialize(params object[] objects)
+        private static unsafe byte[] Serialize(params object[] objects)
         {
             using (MemoryStream memory = new MemoryStream())
             using (BinaryWriter writer = new BinaryWriter(memory))
@@ -851,23 +960,50 @@ namespace System.Security.Cryptography
             }
         }
 
-        private static bool ByteArrayEquals(byte[] b1, byte[] b2)
+        // Gets mscorlib internal error message.
+        private static string GetResourceString(string name)
         {
-            if ((b1 == null) ^ (b2 == null))
+            if (name == null) throw new ArgumentNullException(nameof(name));
+            if (_mscorlib == null)
+            {
+                var assembly = Assembly.GetAssembly(typeof(object));
+                var nameAssembly = assembly.GetName().Name;
+                var manager = new ResourceManager(nameAssembly, assembly);
+                _mscorlib = manager.GetResourceSet(CultureInfo.CurrentUICulture, true, true);
+            }
+            return _mscorlib.GetString(name);
+        }
+
+        // Gets parametrized error message.
+        private static string GetResourceString(string name, params object[] args)
+        {
+            return string.Format(GetResourceString(name), args);
+        }
+
+        // Checks whether array is empty or null.
+        private static bool IsNullOrEmpty(byte[] bytes)
+        {
+            return bytes == null || bytes.Length == 0;
+        }
+
+        // Compares two byte arrays.
+        private static bool ByteArrayEquals(byte[] bytes1, byte[] bytes2)
+        {
+            if ((bytes1 == null) ^ (bytes2 == null))
             {
                 return false;
             }
-            if (b1 == b2)
+            if (bytes1 == bytes2)
             {
                 return true;
             }
-            if (b1.Length != b2.Length)
+            if (bytes1.Length != bytes2.Length)
             {
                 return false;
             }
-            for (int i = 0; i < b1.Length; i++)
+            for (int i = 0; i < bytes1.Length; i++)
             {
-                if (b1[i] != b2[i])
+                if (bytes1[i] != bytes2[i])
                 {
                     return false;
                 }
@@ -875,6 +1011,8 @@ namespace System.Security.Cryptography
             return true;
         }
 
+
+        // Analyzes the activation key, dividing it into parts and decode them.
         private void InternalParse(string activationKey)
         {
             if (string.IsNullOrEmpty(activationKey))
@@ -893,11 +1031,19 @@ namespace System.Security.Cryptography
             }
         }
 
+        /// <summary>
+        /// Converts <see cref="ActivationKey"/> instance to string.
+        /// </summary>
+        /// <param name = "activationKey"> A string containing the activation key. </param> 
         public static explicit operator string(ActivationKey activationKey)
         {
             return activationKey.ToString();
         }
 
+        /// <summary>
+        /// Converts the string containing the activation key to an instance of <see cref="ActivationKey"/>.
+        /// </summary>
+        /// <param name = "activationKey"> A string containing the activation key. </param> 
         public static explicit operator ActivationKey(string activationKey)
         {
             return new ActivationKey(activationKey);
@@ -916,15 +1062,12 @@ namespace System.Security.Cryptography
             }
         }
 
-        /// <inheritdoc cref="ICloneable.Clone()"/>
-        public object Clone()
-        {
-            return new ActivationKey(ToString());
-        }
-
         /// <inheritdoc cref="IFormattable.ToString(string, IFormatProvider)"/>
+        /// <exception cref="ArgumentException">Argument <paramref name="format"/> is null or empty.</exception>
         public string ToString(string format, IFormatProvider formatProvider)
         {
+            if (string.IsNullOrEmpty(format)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(format));
+
             if (Data == null || Hash == null || Tail == null) return string.Empty;
             using (_Base32 base32 = new _Base32())
             {
@@ -935,6 +1078,12 @@ namespace System.Security.Cryptography
             }
         }
 
+        /// <inheritdoc cref="ICloneable.Clone()"/>
+        public object Clone()
+        {
+            return new ActivationKey(ToString());
+        }
+
         /// <inheritdoc cref="IXmlSerializable.GetSchema()"/>
         public XmlSchema GetSchema()
         {
@@ -942,14 +1091,18 @@ namespace System.Security.Cryptography
         }
 
         /// <inheritdoc cref="IXmlSerializable.ReadXml(XmlReader)"/>
+        /// <exception cref="ArgumentNullException">Argument <paramref name="reader"/> is null or empty.</exception>
         public void ReadXml(XmlReader reader)
         {
+            if (reader == null) throw new ArgumentNullException(null, GetResourceString("ArgumentNull_WithParamName", nameof(reader)));
             InternalParse(reader.ReadContentAsString());
         }
 
         /// <inheritdoc cref="IXmlSerializable.WriteXml(XmlWriter)"/>
+        /// <exception cref="ArgumentNullException">Argument <paramref name="writer"/> is null or empty.</exception>
         public void WriteXml(XmlWriter writer)
         {
+            if (writer == null) throw new ArgumentNullException(null, GetResourceString("ArgumentNull_WithParamName", nameof(writer)));
             writer.WriteString(ToString());
         }
 
