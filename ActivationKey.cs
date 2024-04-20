@@ -75,8 +75,15 @@ namespace System.Security.Cryptography
         /// </summary>
         public bool Ready
         {
+            get => !InvalidState;
+        }
+
+        // True if not ready
+        private bool InvalidState
+        {
             get => IsNullOrEmpty(Data) || IsNullOrEmpty(Hash) || IsNullOrEmpty(Tail);
         }
+
         #endregion
 
         #region Constructors
@@ -216,7 +223,7 @@ namespace System.Security.Cryptography
         /// or <see langword = "null" /> if the activation key is invalid. </returns> 
         public byte[] GetOptions(object password = null, params object[] environment)
         {
-            if (!Ready) return null;
+            if (InvalidState) return null;
 
             try
             {
@@ -423,7 +430,7 @@ namespace System.Security.Cryptography
             where TAlg : SymmetricAlgorithm
             where THash : HashAlgorithm
         {
-            if (!Ready) return null;
+            if (InvalidState) return null;
 
             try
             {
@@ -1110,7 +1117,7 @@ namespace System.Security.Cryptography
         /// <inheritdoc cref="object.ToString()"/>
         public override string ToString()
         {
-            if (!Ready) return string.Empty;
+            if (InvalidState) return string.Empty;
 
             using (_Base32 base32 = new _Base32())
             {
@@ -1132,7 +1139,7 @@ namespace System.Security.Cryptography
             if (string.IsNullOrEmpty(pattern))
                 throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(pattern));
 
-            if (!Ready) return string.Empty;
+            if (InvalidState) return string.Empty;
 
             using (_Base32 base32 = new _Base32())
             {
@@ -1152,7 +1159,7 @@ namespace System.Security.Cryptography
             if (string.IsNullOrEmpty(format))
                 throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(format));
 
-            if (!Ready) return string.Empty;
+            if (InvalidState) return string.Empty;
 
             using (_Base32 base32 = new _Base32())
             {
