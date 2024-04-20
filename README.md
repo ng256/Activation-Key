@@ -2,8 +2,16 @@
 
 Represents the activation key used to protect your C# application. It is also called a license key, product key, product activation, software key, and even a serial number. This is a special software key for a computer program. It certifies that the copy of the program was obtained legally. The generated keys help in solving such problems as: limiting the use of your program over time, preventing illegal distribution to unregistered workstations, managing user accounts using a login and password, and others.
 
+License verification is an important aspect of software security. Most often, a license comes down to a code that verifies the validity of the activation key. In the simplest case, license verification can be performed by simply comparing the key with a previously known value. However, this approach does not provide sufficient protection against unauthorized use. A more reliable way is to use cryptographic algorithms to verify the key. In this case, the key can be encrypted, and license verification is performed using decryption.
+
+Various algorithms and methods can be used to verify a license. One popular method is to use hash functions. In this case, the license is a set of data, and a hash function is used to calculate a checksum of that data. When a license is verified, a checksum is calculated based on the data provided by the user and compared with the checksum stored in the application. If the checksums match, then the license is considered valid.
+
 A special feature of this tool is that it contains methods for generating a cryptographic key based on the specified hardware and software binding. An additional feature is the ability to embed any information directly into the key. This information can be recovered as a byte array during key verification.
 The key can be stored as human-readable text so that it can be easily transmitted to the end user.
+
+The implementation of key validation is typically done using the **Verify()** function, which determines whether the supplied key is valid. If the key meets all the requirements, the function returns **true**, allowing the user to launch the application. Otherwise, a warning or access denial appears. This mechanism works based on pre-defined conditions for the validity of the license key and ensures that it is uniquely matched to the software.
+
+In more complex security models, key verification may be coupled with decryption of the application binary. Only valid licenses have the ability to "decrypt" the file, which is the equivalent of the **GetOptions()** function answering the question "Can this key be used to decrypt the binary file?"
 
 ## Contents.  
 
