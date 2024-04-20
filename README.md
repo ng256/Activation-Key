@@ -1,8 +1,9 @@
 # Description.  
 
-Represents the activation key used to protect your C# application. It is also called a license key, product key, product activation, software key and even a serial number. It is a specific software-based key for a computer program. It certifies that the copy of the program is original.  
-The key can be stored as a human readable text for easy transfering to the end user.  
-Contains methods for generating the cryptography key based on the specified hardware and software binding. An additional feature is the ability to embed any information directly into the key. This information can be recovered as a byte array during key verifying.  
+Represents the activation key used to protect your C# application. It is also called a license key, product key, product activation, software key, and even a serial number. This is a special software key for a computer program. It certifies that the copy of the program was obtained legally. The generated keys help in solving such problems as: limiting the use of your program over time, preventing illegal distribution to unregistered workstations, managing user accounts using a login and password, and others.
+
+A special feature of this tool is that it contains methods for generating a cryptographic key based on the specified hardware and software binding. An additional feature is the ability to embed any information directly into the key. This information can be recovered as a byte array during key verification.
+The key can be stored as human-readable text so that it can be easily transmitted to the end user.
 
 ## Contents.  
 
@@ -270,21 +271,24 @@ public bool Verify(object password = null, params object[] environment)
 ### Text representation.  
   
 Use the **ToString()** overriden method to get a string containing the key text, ready to be transfering to the end user.  
-The additional **ToString(format)** method is useful for generating a description string in a custom format. Format can include substrings *"%D"* as data, *"%H"* as hash and *"%T"* as tail, which will be replaced by the corresponding parts of the key.  
+The additional **ToString(format)** method is useful for generating a description string in a custom format. Format can include substrings *"%D"* as data, *"%H"* as hash and *"%T"* as tail, which will be replaced by the corresponding parts of the key. You can also use string interpolation with identifiers D as data, H as hash and T as tail.
 
 <details><summary>View code...</summary>
   
 ```csharp
-activationKey.ToString(); 
+string text = activationKey.ToString(); 
 // returns KCATBZ14Y-VGDM2ZQ-ATSVYMI
-activationKey.ToString("Key data is %D,\r\nkey hash is %H,\r\nkey tail is %T."); 
+
+text = activationKey.ToString("Key data is %D,\r\nkey hash is %H,\r\nkey tail is %T.");
+//  - or -
+text = $"Key data is {activationKey:D},\r\nkey hash is {activationKey:H},\r\nkey tail is {activationKey:T}."; 
 // returns
 // Key data is KCATBZ14Y, 
 // key hash is VGDM2ZQ,
 // key tail is ATSVYMI.
 ```
 
-  </details>  
+</details>  
   
 ### About conversion objects.  
   
@@ -296,129 +300,144 @@ The method **Serialize(objects)**  deserves a separate mention. In the beginning
 // You can improve it however you find it necessary for your own stuff.
 static unsafe byte[] Serialize(params object[] objects)
 {
-  using (MemoryStream memory = new MemoryStream())
-  using (BinaryWriter writer = new BinaryWriter(memory))
-  {
-    foreach (object obj in objects)
+    using (MemoryStream memory = new MemoryStream())
+    using (BinaryWriter writer = new BinaryWriter(memory))
     {
-      if (obj == null) continue;
-      switch (obj)
-      {
-        // Using secure string is best solution to manage password.
-        case SecureString secureString: 
-          if (secureString == null || secureString.Length == 0)
-            continue;
-          Encoding encoding = new UTF8Encoding();
-          int maxLength = encoding.GetMaxByteCount(secureString.Length);
-          IntPtr destPtr = Marshal.AllocHGlobal(maxLength);
-          IntPtr sourcePtr = Marshal.SecureStringToBSTR(secureString);
-          try
-          {
-            char* chars = (char*)sourcePtr.ToPointer();
-            byte* bptr = (byte*)destPtr.ToPointer();
-            int length = encoding.GetBytes(chars, secureString.Length, bptr, maxLength);
-            byte[] destBytes = new byte[length];
-            for (int i = 0; i < length; ++i)
+        for (int j = 0; j < objects.Length; j++)
+        {
+            object obj = objects[j];
+            if (obj == null) continue;
+            try
             {
-              destBytes[i] = *bptr;
-              bptr++;
+                switch (obj)
+                {
+                    case SecureString secureString:
+                        if (secureString == null || secureString.Length == 0)
+                            continue;
+                        Encoding encoding = new UTF8Encoding();
+                        int maxLength = encoding.GetMaxByteCount(secureString.Length);
+                        IntPtr destPtr = Marshal.AllocHGlobal(maxLength);
+                        IntPtr sourcePtr = Marshal.SecureStringToBSTR(secureString);
+                        try
+                        {
+                            char* chars = (char*)sourcePtr.ToPointer();
+                            byte* bptr = (byte*)destPtr.ToPointer();
+                            int length = encoding.GetBytes(chars, secureString.Length, bptr, maxLength);
+                            byte[] destBytes = new byte[length];
+                            for (int i = 0; i < length; ++i)
+                            {
+                                destBytes[i] = *bptr;
+                                bptr++;
+                            }
+                            writer.Write(destBytes);
+                        }
+                        finally
+                        {
+                            Marshal.FreeHGlobal(destPtr);
+                            Marshal.ZeroFreeBSTR(sourcePtr);
+                        }
+                        continue;
+                    case string str when str.Length > 0:
+                        writer.Write(str.ToCharArray());
+                        continue;
+                    case DateTime date:
+                        writer.Write(date.Ticks);
+                        continue;
+                    case bool @bool:
+                        writer.Write(@bool);
+                        continue;
+                    case byte @byte:
+                        writer.Write(@byte);
+                        continue;
+                    case sbyte @sbyte:
+                        writer.Write(@sbyte);
+                        continue;
+                    case short @short:
+                        writer.Write(@short);
+                        continue;
+                    case ushort @ushort:
+                        writer.Write(@ushort);
+                        continue;
+                    case int @int:
+                        writer.Write(@int);
+                        continue;
+                    case uint @uint:
+                        writer.Write(@uint);
+                        continue;
+                    case long @long:
+                        writer.Write(@long);
+                        continue;
+                    case ulong @ulong:
+                        writer.Write(@ulong);
+                        continue;
+                    case float @float:
+                        writer.Write(@float);
+                        continue;
+                    case double @double:
+                        writer.Write(@double);
+                        continue;
+                    case decimal @decimal:
+                        writer.Write(@decimal);
+                        continue;
+                    case byte[] buffer when buffer.Length > 0:
+                        writer.Write(buffer);
+                        continue;
+                    case char[] chars when chars.Length > 0:
+                        writer.Write(chars);
+                        continue;
+                    case Array array when array.Length > 0:
+                        foreach (object element in array) writer.Write(Serialize(element));
+                        continue;
+                    case IConvertible conv:
+                        writer.Write(conv.ToString(CultureInfo.InvariantCulture));
+                        continue;
+                    case IFormattable frm:
+                        writer.Write(frm.ToString(null, CultureInfo.InvariantCulture));
+                        continue;
+                    case Stream stream when stream.CanWrite:
+                        stream.CopyTo(stream);
+                        continue;
+                    case object o when obj.GetType().IsSerializable:
+                        continue;
+                    default:
+                        int size = Marshal.SizeOf(obj);
+                        byte[] bytes = new byte[size];
+                        IntPtr handle = Marshal.AllocHGlobal(size);
+                        try
+                        {
+                            Marshal.StructureToPtr(obj, handle, false);
+                            Marshal.Copy(handle, bytes, 0, size);
+                            writer.Write(bytes);
+                        }
+                        finally
+                        {
+                            Marshal.FreeHGlobal(handle);
+                        }
+                        continue;
+                }
             }
-            writer.Write(destBytes);
-          }
-          finally
-          {
-            Marshal.FreeHGlobal(destPtr);
-            Marshal.ZeroFreeBSTR(sourcePtr);
-          }
-          continue;
-        // Generic types.
-        case string str:
-          if (str.Length > 0)
-            writer.Write(str.ToCharArray());
-          continue;
-        case DateTime date:
-          writer.Write(date.Ticks);
-          continue;
-        case bool @bool:
-          writer.Write(@bool);
-          continue;
-        case short @short:
-          writer.Write(@short);
-          continue;
-        case ushort @ushort:
-          writer.Write(@ushort);
-          continue;
-        case int @int:
-          writer.Write(@int);
-          continue;
-        case uint @uint:
-          writer.Write(@uint);
-          continue;
-        case long @long:
-          writer.Write(@long);
-          continue;
-        case ulong @ulong:
-          writer.Write(@ulong);
-          continue;
-        case float @float:
-          writer.Write(@float);
-          continue;
-        case double @double:
-          writer.Write(@double);
-          continue;
-        case decimal @decimal:
-          writer.Write(@decimal);
-          continue;
-        case byte[] buffer:
-          if (buffer.Length > 0)
-            writer.Write(buffer);
-          continue;
-        // Other types.
-        case Array array:
-          if (array.Length > 0)
-            foreach (var a in array) writer.Write(Serialize(a));
-          continue;
-        case IConvertible conv:
-          writer.Write(conv.ToString(CultureInfo.InvariantCulture));
-          continue;
-        case IFormattable frm:
-          writer.Write(frm.ToString(null, CultureInfo.InvariantCulture));
-          continue;
-        case Stream stream:
-          stream.CopyTo(stream);
-          continue;
-        default:
-          try
-          {
-            int rawsize = Marshal.SizeOf(obj);
-            byte[] rawdata = new byte[rawsize];
-            GCHandle handle = GCHandle.Alloc(rawdata, GCHandleType.Pinned);
-            Marshal.StructureToPtr(obj, handle.AddrOfPinnedObject(), false);
-            writer.Write(rawdata);
-            handle.Free();
-          }
-          catch(Exception e)
-          {
-            // Place debugging tools here.
-          }
-          continue;
-      }
+            catch (Exception e)
+            {
+              // This is where the debugger information will be helpful
+            }
+        }
+        writer.Flush();
+        byte[] result = memory.ToArray();
+        return result;
     }
-    writer.Flush();
-    byte[] bytes = memory.ToArray();
-    return bytes;
-  }
 }
 ```
 
 </details>
   
-### Briefly about built-in classes.   
+### Briefly about embeded classes.   
 
 | Class | Description |  
 | :---: | :-------- |  
 | ARC4 | Port of cryptography provider designed by Ron Rivest © for encrypt/decrypt the data part. |  
 | SMHasher | Port of Murmur Hash 3 designed by Austin Appleby © algorithm for calculating the hash. |  
 | Base32 | Fork of Base-32 numeral system encoder designed by Denis Zinchenko © for converting the key to readeble text. |  
-  
+
+You can replace them with your own implementation of encryption, hash calculation and encoding of data.
+
 [↑ Back to contents.](#contents)
