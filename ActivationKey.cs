@@ -35,11 +35,14 @@ namespace System.Security.Cryptography
     [DebuggerDisplay("{ToString()}")]
     public sealed class ActivationKey : IFormattable, ICloneable, IDisposable, IXmlSerializable
     {
+        #region Static members
         private const int IVSIZE = 4; // Default length of the initialization vector.
         private static ResourceSet _mscorlib = null; // Mscorlib resources.
         private static RNGCryptoServiceProvider _rng = null;
         private static RNGCryptoServiceProvider InternalRng => _rng ?? (_rng = new RNGCryptoServiceProvider());
+        #endregion
 
+        #region Properties
         /// <summary>
         /// Password-encrypted part of the activation key. Contains expiration date of key and stored options.
         /// </summary>
@@ -68,9 +71,15 @@ namespace System.Security.Cryptography
         }
 
         /// <summary>
-        /// Returns <see langword="true" /> if this instance of <see cref = "ActivationKey" /> contains the required data and it's ready to be verified.
+        /// Returns <see langword="true" /> if this instance of <see cref = "ActivationKey" /> contains complete data and is ready to be verified.
         /// </summary>
-        public bool Ready => IsNullOrEmpty(Data) || IsNullOrEmpty(Hash) || IsNullOrEmpty(Tail);
+        public bool Ready
+        {
+            get => IsNullOrEmpty(Data) || IsNullOrEmpty(Hash) || IsNullOrEmpty(Tail);
+        }
+        #endregion
+
+        #region Constructors
 
         /// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />.
@@ -189,6 +198,10 @@ namespace System.Security.Cryptography
             InternalParse(activationKey.ToUpperInvariant());
         }
 
+        #endregion
+
+        #region Verifying
+
         /// <summary>
         /// Checks if the activation key is valid,
         /// represented by the current instance <see cref = "ActivationKey" />
@@ -301,6 +314,10 @@ namespace System.Security.Cryptography
         {
             using (ActivationKey key = new ActivationKey(activationKey)) return key.Verify(password, environment);
         }
+
+        #endregion
+
+        #region Custom encrypt providers
 
         /// <summary>
         /// Initializes a new instance <see cref = "ActivationKey" />,
@@ -547,6 +564,12 @@ namespace System.Security.Cryptography
             using (ActivationKey key = Create<TAlg, THash>(activationKey)) return key.Verify<TAlg, THash>(password, environment);
         }
 
+        #endregion
+
+        #region Embeded classes
+
+        #region Cipher
+
         // Port of cryptography provider designed by Ron Rives (C)
         private sealed class _ARC4 : IDisposable
         {
@@ -650,6 +673,10 @@ namespace System.Security.Cryptography
             }
         }
 
+        #endregion
+
+        #region Hash
+
         // Port of MurmurHash3 algorithm designed by Austin Appleby(C).
         private sealed class _SMHasher
         {
@@ -730,6 +757,10 @@ namespace System.Security.Cryptography
                 return BitConverter.GetBytes(GetUInt32(objects));
             }
         }
+
+        #endregion
+
+        #region Encoding
 
         // Fork of encoder designed by Denis Zinchenko (C)
         private sealed class _Base32 : IDisposable
@@ -845,6 +876,12 @@ namespace System.Security.Cryptography
             }
         }
 
+        #endregion
+
+        #endregion
+
+        #region Static tools
+
         // Converts objects to a byte array. You can improve it however you find it necessary for your own stuff.
         [SecurityCritical]
         private static unsafe byte[] Serialize(params object[] objects)
@@ -852,111 +889,134 @@ namespace System.Security.Cryptography
             using (MemoryStream memory = new MemoryStream())
             using (BinaryWriter writer = new BinaryWriter(memory))
             {
-                foreach (object obj in objects)
+                for (int j = 0; j < objects.Length; j++)
                 {
+                    object obj = objects[j];
                     if (obj == null) continue;
-                    switch (obj)
+                    try
                     {
-                        case SecureString secureString:
-                            if (secureString == null || secureString.Length == 0)
-                                continue;
-                            Encoding encoding = new UTF8Encoding();
-                            int maxLength = encoding.GetMaxByteCount(secureString.Length);
-                            IntPtr destPtr = Marshal.AllocHGlobal(maxLength);
-                            IntPtr sourcePtr = Marshal.SecureStringToBSTR(secureString);
-                            try
-                            {
-                                char* chars = (char*)sourcePtr.ToPointer();
-                                byte* bptr = (byte*)destPtr.ToPointer();
-                                int length = encoding.GetBytes(chars, secureString.Length, bptr, maxLength);
-                                byte[] destBytes = new byte[length];
-                                for (int i = 0; i < length; ++i)
+                        switch (obj)
+                        {
+                            case SecureString secureString:
+                                if (secureString == null || secureString.Length == 0)
+                                    continue;
+                                Encoding encoding = new UTF8Encoding();
+                                int maxLength = encoding.GetMaxByteCount(secureString.Length);
+                                IntPtr destPtr = Marshal.AllocHGlobal(maxLength);
+                                IntPtr sourcePtr = Marshal.SecureStringToBSTR(secureString);
+                                try
                                 {
-                                    destBytes[i] = *bptr;
-                                    bptr++;
+                                    char* chars = (char*)sourcePtr.ToPointer();
+                                    byte* bptr = (byte*)destPtr.ToPointer();
+                                    int length = encoding.GetBytes(chars, secureString.Length, bptr, maxLength);
+                                    byte[] destBytes = new byte[length];
+                                    for (int i = 0; i < length; ++i)
+                                    {
+                                        destBytes[i] = *bptr;
+                                        bptr++;
+                                    }
+                                    writer.Write(destBytes);
                                 }
-                                writer.Write(destBytes);
-                            }
-                            finally
-                            {
-                                Marshal.FreeHGlobal(destPtr);
-                                Marshal.ZeroFreeBSTR(sourcePtr);
-                            }
-                            continue;
-                        case string str:
-                            if (str.Length > 0)
+                                finally
+                                {
+                                    Marshal.FreeHGlobal(destPtr);
+                                    Marshal.ZeroFreeBSTR(sourcePtr);
+                                }
+                                continue;
+                            case string str when str.Length > 0:
                                 writer.Write(str.ToCharArray());
-                            continue;
-                        case DateTime date:
-                            writer.Write(date.Ticks);
-                            continue;
-                        case bool @bool:
-                            writer.Write(@bool);
-                            continue;
-                        case short @short:
-                            writer.Write(@short);
-                            continue;
-                        case ushort @ushort:
-                            writer.Write(@ushort);
-                            continue;
-                        case int @int:
-                            writer.Write(@int);
-                            continue;
-                        case uint @uint:
-                            writer.Write(@uint);
-                            continue;
-                        case long @long:
-                            writer.Write(@long);
-                            continue;
-                        case ulong @ulong:
-                            writer.Write(@ulong);
-                            continue;
-                        case float @float:
-                            writer.Write(@float);
-                            continue;
-                        case double @double:
-                            writer.Write(@double);
-                            continue;
-                        case decimal @decimal:
-                            writer.Write(@decimal);
-                            continue;
-                        case byte[] buffer:
-                            if (buffer.Length > 0)
+                                continue;
+                            case DateTime date:
+                                writer.Write(date.Ticks);
+                                continue;
+                            case bool @bool:
+                                writer.Write(@bool);
+                                continue;
+                            case byte @byte:
+                                writer.Write(@byte);
+                                continue;
+                            case sbyte @sbyte:
+                                writer.Write(@sbyte);
+                                continue;
+                            case short @short:
+                                writer.Write(@short);
+                                continue;
+                            case ushort @ushort:
+                                writer.Write(@ushort);
+                                continue;
+                            case int @int:
+                                writer.Write(@int);
+                                continue;
+                            case uint @uint:
+                                writer.Write(@uint);
+                                continue;
+                            case long @long:
+                                writer.Write(@long);
+                                continue;
+                            case ulong @ulong:
+                                writer.Write(@ulong);
+                                continue;
+                            case float @float:
+                                writer.Write(@float);
+                                continue;
+                            case double @double:
+                                writer.Write(@double);
+                                continue;
+                            case decimal @decimal:
+                                writer.Write(@decimal);
+                                continue;
+                            case byte[] buffer when buffer.Length > 0:
                                 writer.Write(buffer);
-                            continue;
-                        case Array array:
-                            if (array.Length > 0)
-                                foreach (var a in array) writer.Write(Serialize(a));
-                            continue;
-                        case IConvertible conv:
-                            writer.Write(conv.ToString(CultureInfo.InvariantCulture));
-                            continue;
-                        case IFormattable frm:
-                            writer.Write(frm.ToString(null, CultureInfo.InvariantCulture));
-                            continue;
-                        case Stream stream:
-                            stream.CopyTo(stream);
-                            continue;
-                        default:
-                            try
-                            {
-                                int rawsize = Marshal.SizeOf(obj);
-                                byte[] rawdata = new byte[rawsize];
-                                GCHandle handle = GCHandle.Alloc(rawdata, GCHandleType.Pinned);
-                                Marshal.StructureToPtr(obj, handle.AddrOfPinnedObject(), false);
-                                writer.Write(rawdata);
-                                handle.Free();
-                            }
-                            catch (Exception e)
-                            {
-
-                            }
-                            continue;
+                                continue;
+                            case char[] chars when chars.Length > 0:
+                                writer.Write(chars);
+                                continue;
+                            case Array array when array.Length > 0:
+                                foreach (object element in array) writer.Write(Serialize(element));
+                                continue;
+                            case IConvertible conv:
+                                writer.Write(conv.ToString(CultureInfo.InvariantCulture));
+                                continue;
+                            case IFormattable frm:
+                                writer.Write(frm.ToString(null, CultureInfo.InvariantCulture));
+                                continue;
+                            case Stream stream when stream.CanWrite:
+                                stream.CopyTo(stream);
+                                continue;
+                            case object o when obj.GetType().IsSerializable:
+                                continue;
+                            default:
+                                int size = Marshal.SizeOf(obj);
+                                byte[] bytes = new byte[size];
+                                IntPtr handle = Marshal.AllocHGlobal(size);
+                                try
+                                {
+                                    Marshal.StructureToPtr(obj, handle, false);
+                                    Marshal.Copy(handle, bytes, 0, size);
+                                    writer.Write(bytes);
+                                }
+                                finally
+                                {
+                                    Marshal.FreeHGlobal(handle);
+                                }
+                                continue;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+#if DEBUG               // This is where the debugger information will be helpful
+                        if (Debug.Listeners.Count == 0) continue;
+                        Debug.WriteLine(DateTime.Now);
+                        Debug.WriteLine(GetResourceString("Arg_SerializationException"));
+                        Debug.WriteLine(GetResourceString("Arg_ParamName_Name", $"{nameof(objects)}[{j}]"));
+                        Debug.WriteLine(obj, "Object");
+                        Debug.WriteLine(e, "Exception");
+#endif
                     }
                 }
                 writer.Flush();
-                byte[] bytes = memory.ToArray();
-                return bytes;
+                byte[] result = memory.ToArray();
+                return result;
             }
         }
 
@@ -990,46 +1050,26 @@ namespace System.Security.Cryptography
         private static bool ByteArrayEquals(byte[] bytes1, byte[] bytes2)
         {
             if ((bytes1 == null) ^ (bytes2 == null))
-            {
                 return false;
-            }
+
             if (bytes1 == bytes2)
-            {
                 return true;
-            }
+
             if (bytes1.Length != bytes2.Length)
-            {
                 return false;
-            }
+
             for (int i = 0; i < bytes1.Length; i++)
             {
                 if (bytes1[i] != bytes2[i])
-                {
                     return false;
-                }
             }
+
             return true;
         }
 
+        #endregion
 
-        // Analyzes the activation key, dividing it into parts and decode them.
-        private void InternalParse(string activationKey)
-        {
-            if (string.IsNullOrEmpty(activationKey))
-            {
-                return;
-            }
-            string[] items = activationKey.Split('-');
-            if (items.Length >= 3)
-            {
-                using (_Base32 base32 = new _Base32())
-                {
-                    Data = base32.Decode(items[0]);
-                    Hash = base32.Decode(items[1]);
-                    Tail = base32.Decode(items[2]);
-                }
-            }
-        }
+        #region Methods
 
         /// <summary>
         /// Converts <see cref="ActivationKey"/> instance to string.
@@ -1049,32 +1089,84 @@ namespace System.Security.Cryptography
             return new ActivationKey(activationKey);
         }
 
+        // Analyzes the activation key, dividing it into parts and decode them.
+        private void InternalParse(string activationKey)
+        {
+            if (string.IsNullOrEmpty(activationKey))
+                return;
+
+            string[] items = activationKey.Split('-');
+            if (items.Length >= 3)
+            {
+                using (_Base32 base32 = new _Base32())
+                {
+                    Data = base32.Decode(items[0]);
+                    Hash = base32.Decode(items[1]);
+                    Tail = base32.Decode(items[2]);
+                }
+            }
+        }
+
         /// <inheritdoc cref="object.ToString()"/>
         public override string ToString()
         {
-            if (Data == null || Hash == null || Tail == null)
-            {
-                return string.Empty;
-            }
+            if (!Ready) return string.Empty;
+
             using (_Base32 base32 = new _Base32())
             {
                 return base32.Encode(Data) + "-" + base32.Encode(Hash) + "-" + base32.Encode(Tail);
             }
         }
 
-        /// <inheritdoc cref="IFormattable.ToString(string, IFormatProvider)"/>
+        /// <summary>
+        /// Converts the current instance of <see cref="ActivationKey"/> to a string in the specified format.
+        /// Replaces the characters %D, %H and %T in the string specified in <paramref name="pattern"/> 
+        /// with <see cref="Data"/>, <see cref="Hash"/> and <see cref= "Tail"/> properties 
+        /// of the current instance of <see cref="ActivationKey"/>.
+        /// </summary>
+        /// <param name="pattern">A string containing formatting information.</param>
+        /// <returns>The string value of the current instance of <see cref="ActivationKey"/> in the specified format.</returns>
         /// <exception cref="ArgumentException">Argument <paramref name="format"/> is null or empty.</exception>
-        public string ToString(string format, IFormatProvider formatProvider)
+        public string ToString(string pattern)
         {
-            if (string.IsNullOrEmpty(format)) throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(format));
+            if (string.IsNullOrEmpty(pattern))
+                throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(pattern));
 
-            if (Data == null || Hash == null || Tail == null) return string.Empty;
+            if (!Ready) return string.Empty;
+
             using (_Base32 base32 = new _Base32())
             {
-                return format
+                StringBuilder cache = new StringBuilder(pattern)
                     .Replace("%D", base32.Encode(Data))
                     .Replace("%H", base32.Encode(Hash))
                     .Replace("%T", base32.Encode(Tail));
+                return cache.ToString();
+            }
+        }
+
+        /// <inheritdoc cref="IFormattable.ToString(string, IFormatProvider)"/>
+        /// <exception cref="ArgumentException">Argument <paramref name="format"/> is null or empty.</exception>
+        /// <exception cref="FormatException">Format specifier is unsupported.</exception>
+        public string ToString(string format, IFormatProvider formatProvider)
+        {
+            if (string.IsNullOrEmpty(format))
+                throw new ArgumentException(GetResourceString("Arg_EmptyOrNullString"), nameof(format));
+
+            if (!Ready) return string.Empty;
+
+            using (_Base32 base32 = new _Base32())
+            {
+                switch (format.ToUpperInvariant())
+                {
+                    case "D":
+                        return IsNullOrEmpty(Data) ? string.Empty : base32.Encode(Data);
+                    case "H":
+                        return IsNullOrEmpty(Hash) ? string.Empty : base32.Encode(Hash);
+                    case "T":
+                        return IsNullOrEmpty(Tail) ? string.Empty : base32.Encode(Tail);
+                    default:
+                        throw new FormatException(GetResourceString("Format_BadFormatSpecifier"));
+                }
             }
         }
 
@@ -1116,7 +1208,11 @@ namespace System.Security.Cryptography
             Hash = null;
             Tail = null;
         }
+
+        #endregion
     }
+
+    #region Type converter
 
     /// <summary>
     /// Converts <see cref = "ActivationKey" /> between other types.
@@ -1153,4 +1249,6 @@ namespace System.Security.Cryptography
             return base.ConvertTo(context, culture, value, destinationType);
         }
     }
+
+    #endregion
 }
