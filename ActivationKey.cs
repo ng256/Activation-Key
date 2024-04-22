@@ -296,7 +296,7 @@ namespace System.Security.Cryptography
         {
             try
             {
-                return Verify(password, environment);
+                return GetOptions(password, environment) != null;
             }
             catch
             {
@@ -533,8 +533,7 @@ namespace System.Security.Cryptography
         {
             try
             {
-                byte[] key = Serialize(password);
-                return Verify<TAlg, THash>(key, environment);
+                return GetOptions<TAlg, THash>(password, environment) != 0;
             }
             catch
             {
