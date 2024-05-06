@@ -1,4 +1,15 @@
-# Description.  
+# Activation Key 1.0 Project.
+
+## Contents.  
+
+1. [Description.](#description)
+2. [Format.](#format)
+3. [Futures.](#futures)
+4. [Key binding.](#key-binding)
+5. [Usage.](#usage)
+6. [Details.](#details)
+
+## Description.  
 
 Represents the activation key used to protect your C# application. It is also called a license key, product key, product activation, software key, and even a serial number. This is a special software key for a computer program. It certifies that the copy of the program was obtained legally. The generated keys help in solving such problems as: limiting the use of your program over time, preventing illegal distribution to unregistered workstations, managing user accounts using a login and password, and others.
 
@@ -12,14 +23,6 @@ The key can be stored as human-readable text so that it can be easily transmitte
 The implementation of key validation is typically done using the **Verify()** function, which determines whether the supplied key is valid. If the key meets all the requirements, the function returns **true**, allowing the user to launch the application. Otherwise, a warning or access denial appears. This mechanism works based on pre-defined conditions for the validity of the license key and ensures that it is uniquely matched to the software.
 
 In more complex security models, key verification may be coupled with decryption of the application binary. Only valid licenses have the ability to "decrypt" the file, which is the equivalent of the **GetOptions()** function answering the question "Can this key be used to decrypt the binary file?"
-
-## Contents.  
-
-1. [Format.](#format)
-2. [Futures.](#futures)
-3. [Key binding.](#key-binding)
-4. [Usage.](#usage)
-5. [Details.](#details)
 
 ## Format.  
 
