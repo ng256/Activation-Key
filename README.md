@@ -1,4 +1,4 @@
-# Activation Key 2.0 Project.
+# Activation Key 2.0
 
 ## Contents.  
 
