@@ -1,4 +1,4 @@
-# Activation Key 1.1 Project.
+# Activation Key 1.1
 
 ## Contents.  
 
