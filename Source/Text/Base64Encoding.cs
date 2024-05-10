@@ -15,6 +15,9 @@ namespace System.Text
 {
     internal sealed class Base64Encoding : InternalBaseEncoding
     {
+        protected override int EncodingBlockSize => 3;
+        protected override int DecodingBlockSize => 4;
+        protected override int EncodingBits => 6;
         public override string EncodingName => "base-64";
 
         public Base64Encoding() : base(0)
@@ -61,23 +64,12 @@ namespace System.Text
 
         public char GetDigit(int value)
         {
-            if (value < 0x1A)
-                return (char) (value + 0x41);
-            if (value < 0x34)
-                return (char) (value + 0x47);
-            if (value < 0x3E)
-                return (char) (value - 0x4);
-            switch (value)
-            {
-                case 0x3E:
-                    return (char)0x2B;
-                case 0x3F:
-                    return (char)0x2F;
-                case 0x40:
-                    return (char)0x3D;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(value), value, GetResourceString("Format_BadBase"));
-            }
+            if (value < 0x1A) return (char) (value + 0x41);
+            if (value < 0x34) return (char) (value + 0x47);
+            if (value < 0x3E) return (char) (value - 0x4);
+            if (value == 0x3E) return (char)0x2B;
+            if (value == 0x3F) return (char)0x2F;
+            throw new ArgumentOutOfRangeException(nameof(value), value, GetResourceString("Format_BadBase"));
         }
 
         private int GetValue(char digit)
