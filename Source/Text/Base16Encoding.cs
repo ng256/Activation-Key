@@ -38,8 +38,10 @@ namespace System.Text
         int endCharIndex = charIndex + charCount;
         while (charIndex < endCharIndex)
         {
-            byte value = unchecked ((byte) ((GetValue(chars[charIndex++]) << 4) + GetValue(chars[charIndex++])));
-            bytes[byteIndex++] = value;
+            int value = GetValue(chars[charIndex++]) << 4;
+            value += GetValue(chars[charIndex++]);
+            byte currentByte = unchecked ((byte) value);
+            bytes[byteIndex++] = currentByte;
         }
 
         return byteIndex - startByteIndex;
@@ -59,10 +61,11 @@ namespace System.Text
       while (byteIndex < endByteIndex)
       {
         int currentByte = bytes[byteIndex++];
-        char digit = GeDigit(currentByte / 16);
+        int value = currentByte / 16;
+        char digit = GeDigit(value);
         chars[charIndex++] = digit;
-        int value = currentByte % 16;
-        digit = value < 10 ? (char) (value + 48) : (char) (value + 55);
+        value = currentByte % 16;
+        digit = GeDigit(value);
         chars[charIndex++] = digit;
       }
       return charIndex - startCharIndex;
