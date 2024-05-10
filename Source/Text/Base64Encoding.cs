@@ -1,4 +1,4 @@
-﻿/***************************************************************
+/***************************************************************
 
 •   File: Base16Encoding.cs
 
@@ -14,14 +14,53 @@
 
 ***************************************************************/
 
+using static System.InternalTools;
+
 namespace System.Text
 {
-  internal sealed class Base64Encoding : IBaseEncoding
-  {
-    public string GetString(byte[] bytes) => Convert.ToBase64String(bytes);
+    internal sealed class Base64Encoding : InternalBaseEncoding
+    {
+        private readonly string _encodingName;
 
-    public byte[] GetBytes(string s) => Convert.FromBase64String(s);
+        public override string EncodingName => _encodingName;
 
-    public object Clone() => new Base64Encoding();
-  }
+        public Base64Encoding() : base(0)
+        {
+            _encodingName = "base-64";
+        }
+
+        public override int GetChars(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex)
+        {
+            return System.Convert.ToBase64CharArray(bytes, byteIndex, byteCount, chars, charIndex);
+        }
+
+
+
+        public override int GetMaxByteCount(int charCount)
+        {
+            return (4 * charCount / 3 + 3) & ~3;
+        }
+
+
+        public override int GetMaxCharCount(int byteCount)
+        {
+            return byteCount / 3 * 4 + (byteCount % 3 != 0 ? 4 : 0);
+        }
+
+        public override int GetBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex)
+        {
+            byte[] buffer = System.Convert.FromBase64CharArray(chars, charIndex, charCount);
+            buffer.CopyTo(bytes, byteIndex);
+            return buffer.Length;
+        }
+
+        public override object Clone()
+        {
+            return new Base64Encoding();
+        }
+
+        public Base64Encoding(int codePage) : base(codePage)
+        {
+        }
+    }
 }
