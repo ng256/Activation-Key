@@ -15,9 +15,6 @@ namespace System.Text
 {
     internal sealed class Base64Encoding : InternalBaseEncoding
     {
-        protected override int EncodingBlockSize => 3;
-        protected override int DecodingBlockSize => 4;
-        protected override int EncodingBits => 6;
         public override string EncodingName => "base-64";
 
         public Base64Encoding() : base(0)
