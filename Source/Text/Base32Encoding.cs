@@ -1,4 +1,4 @@
-﻿/***************************************************************
+/***************************************************************
 
 •   File: Base16Encoding.cs
 
@@ -17,12 +17,12 @@ namespace System.Text
     {
         private readonly string _encodingName;
 
-        public override string EncodingName => this._encodingName;
+        public override string EncodingName => _encodingName;
 
         public Base32Encoding()
             : base(0)
         {
-            this._encodingName = "base-32";
+            _encodingName = "base-32";
         }
 
         public override int GetBytes(
@@ -32,35 +32,35 @@ namespace System.Text
             byte[] bytes,
             int byteIndex)
         {
-            this.Validate(chars, charIndex, charCount, bytes, byteIndex);
-            charCount = this.GetCharCount(chars, charIndex, charCount, bytes, byteIndex);
-            int maxCount = bytes.GetMaxCount<byte>(byteIndex);
-            int num1 = charIndex;
-            int num2 = num1 + charCount;
-            byte num3 = 0;
-            byte num4 = 8;
-            while (charIndex < num2)
+            Validate(chars, charIndex, charCount, bytes, byteIndex);
+            charCount = GetCharCount(chars, charIndex, charCount, bytes, byteIndex);
+            int maxCount = bytes.GetMaxCount(byteIndex);
+            int startByteIndex = byteIndex;
+            int endCharIndex = charIndex + charCount;
+            byte currentByte = 0;
+            byte bitsCount = 8;
+            while (charIndex < endCharIndex)
             {
-                int num5 = Base32Encoding.GetValue(chars[charIndex++]);
-                if (num4 > (byte)5)
+                int value = GetValue(chars[charIndex++]);
+                if (bitsCount > 5)
                 {
-                    int num6 = num5 << (int)num4 - 5;
-                    num3 |= (byte)num6;
-                    num4 -= (byte)5;
+                    int num6 = value << bitsCount - 5;
+                    currentByte |= (byte)num6;
+                    bitsCount -= 5;
                 }
                 else
                 {
-                    int num7 = num5 >> 5 - (int)num4;
-                    byte num8 = (byte)((uint)num3 | (uint)num7);
+                    int num7 = value >> 5 - bitsCount;
+                    byte num8 = (byte)(currentByte | (uint)num7);
                     bytes[byteIndex++] = num8;
-                    num3 = (byte)(num5 << 3 + (int)num4);
-                    num4 += (byte)3;
+                    currentByte = (byte)(value << 3 + bitsCount);
+                    bitsCount += 3;
                 }
             }
 
             if (byteIndex != maxCount)
-                bytes[byteIndex] = num3;
-            return charIndex - num1;
+                bytes[byteIndex] = currentByte;
+            return byteIndex - startByteIndex;
         }
 
         public override int GetChars(
@@ -70,39 +70,43 @@ namespace System.Text
             char[] chars,
             int charIndex)
         {
-            int maxCharCount = this.GetMaxCharCount(byteCount);
-            byte b1 = 0;
-            byte num1 = 5;
-            for (int index = byteIndex; index < byteCount; ++index)
+            Validate(bytes, byteIndex, byteCount, chars, charIndex);
+
+            int maxCharCount = GetMaxCharCount(byteCount);
+            byte value = 0;
+            byte bitsCount = 5;
+            int startCharIndex = charIndex;
+            int endByteIndex = byteIndex + byteCount;
+            while (byteIndex < endByteIndex)
             {
-                byte num2 = bytes[index];
-                byte b2 = (byte)((uint)b1 | (uint)num2 >> 8 - (int)num1);
-                chars[charIndex++] = Base32Encoding.GetDigit(b2);
-                if (num1 < (byte)4)
+                byte currentByte = bytes[byteIndex++];
+                byte b2 = (byte)(value | (uint)currentByte >> 8 - bitsCount);
+                chars[charIndex++] = GetDigit(b2);
+                if (bitsCount < 4)
                 {
-                    byte b3 = (byte)((int)num2 >> 3 - (int)num1 & 31);
-                    chars[charIndex++] = Base32Encoding.GetDigit(b3);
-                    num1 += (byte)5;
+                    byte b3 = (byte)(currentByte >> 3 - bitsCount & 31);
+                    chars[charIndex++] = GetDigit(b3);
+                    bitsCount += 5;
                 }
 
-                num1 -= (byte)3;
-                b1 = (byte)((int)num2 << (int)num1 & 31);
+                bitsCount -= 3;
+                value = (byte)(currentByte << bitsCount & 31);
             }
 
             if (charIndex != maxCharCount)
-                chars[charIndex++] = Base32Encoding.GetDigit(b1);
-            return charIndex;
+                chars[charIndex++] = GetDigit(value);
+            return charIndex - startCharIndex;
         }
 
         public override int GetByteCount(char[] chars, int index, int count) =>
-            this.GetMaxByteCount(chars.Length - index);
+            GetMaxByteCount(chars.Length - index);
 
         public override int GetCharCount(byte[] bytes, int index, int count) =>
-            this.GetMaxCharCount(bytes.Length - index);
+            GetMaxCharCount(bytes.Length - index);
 
-        public override int GetMaxByteCount(int charCount) => (int)Math.Ceiling((double)charCount * 5.0 + 4.0) / 8;
+        public override int GetMaxByteCount(int charCount) => (int)Math.Ceiling(charCount * 5.0 + 4.0) / 8;
 
-        public override int GetMaxCharCount(int byteCount) => (int)Math.Ceiling((double)byteCount * 8.0 + 4.0) / 5;
+        public override int GetMaxCharCount(int byteCount) => (int)Math.Ceiling(byteCount * 8.0 + 4.0) / 5;
 
         private static int GetValue(char digit)
         {
@@ -112,9 +116,9 @@ namespace System.Text
             throw new ArgumentOutOfRangeException(nameof(digit), digit, GetResourceString("Format_BadBase"));
         }
 
-        private static char GetDigit(byte b)
+        private static char GetDigit(byte value)
         {
-            return b < 0x1A ? (char)(b + 0x41) : (char)(b + 0x18);
+            return value < 0x1A ? (char)(value + 0x41) : (char)(value + 0x18);
         }
 
         public override object Clone()
