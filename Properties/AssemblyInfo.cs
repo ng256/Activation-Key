@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Permissions;
 
@@ -8,9 +9,8 @@ using System.Security.Permissions;
 [assembly: AssemblyProduct("NG256 Activation Key")]
 [assembly: AssemblyCopyright("© NG256 2021-2024")]
 [assembly: AssemblyTrademark("NG256® Activation Key®")]
-[assembly: AssemblyFileVersion("2.0.2405.0007")]
+[assembly: AssemblyFileVersion("2.0.2405.0008")]
 [assembly: AssemblyConfiguration("Release")]
 [assembly: ComVisible(false)]
 [assembly: Guid("28cdc5b3-3a32-413f-80ad-1a68da1871c8")]
-[assembly: AssemblyVersion("2.0.2405.7")]
-[assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
+[assembly: AssemblyVersion("2.0.2405.8")]
