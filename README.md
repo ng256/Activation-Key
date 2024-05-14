@@ -1,4 +1,4 @@
-# Activation Key 1.1
+# Activation Key 1.2
 
 ## Contents.  
 
@@ -32,7 +32,7 @@ Key format: DATA-HASH-TAIL.
 | :----: | :---- |
 | Data | A part of the key encrypted with a password. Contains the key expiration date and application options. |
 | Hash | Checksum of the key expiration date, password, options and environment parameters. |
-| Tail | Initialization vector that used to decode the data. |
+| Seed | Initialization value that used to decode the data. |
 
 For example, KCATBZ14Y-VGDM2ZQ-ATSVYMI.
 
@@ -46,8 +46,7 @@ For example, KCATBZ14Y-VGDM2ZQ-ATSVYMI.
 
 Activation key is generated and verified using the following parameters:
 - **expiration date** - limits the program's validity to the specified date. If value is ommited, it does not expire.  
-- **password** - an optional parameter, assumes that the user must enter the correct password to run the program. If you pass null, then password is not used.    
-- **options** - information that is restored when checking the key in its original form; may contain data such as the maximum number of launches, a key for decrypting a program block, restrictions and permisions to use any functions and other parameters necessary for the correct operation of the program. A value null for this parameter, when validated, will return an empty byte array.  
+- **data** - information that is restored when checking the key in its original form; may contain data such as the maximum number of launches, a key for decrypting a program block, restrictions and permisions to use any functions and other parameters necessary for the correct operation of the program. A value null for this parameter, when validated, will return an empty byte array.  
 - **environment** - parameters for binding to the environment. These may include the name and version of the application, workstation ID, username, etc. If you do not specify environment parameters, then the key will not take any bounds.  
 
 Thus, a range of tasks is solved:
@@ -84,10 +83,7 @@ ActivationKey activationKey = new ActivationKey(
 //expirationDate:
 DateTime.Now.AddMonths(1),       // Expiration date 1 month later.
                                  // Pass DateTime.Max for unlimited use.
-//password:
-"password",                      // Password protection;
-                                 // this parameter can be null.
-//options:
+//data:
 "john",                          // Registered user name, for example.
                                  // Pass here numbers, flags, text or other
                                  // that you want to restore from the activation key.
@@ -104,7 +100,7 @@ XO1UCW1FHEBVYZWLW1HA-RQUJ3EY-BBRNV2Q.
 
 ```csharp
 // Thus, a simple check of the key for validity is carried out.
-bool checkKey = activationKey.Verify("password", appName, macAddress);
+bool checkKey = activationKey.Verify(appName, macAddress);
 if (!checkKey)
 {
   MessageBox.Show("Your copy is not activated! Please get a valid activation key.");
@@ -133,13 +129,13 @@ if (bytes == null || Encoding.UTF8.GetString(bytes) != login)
 
 ```csharp
 ActivationKey activationKey = ActivationKey.Create<AesManaged, MD5CryptoServiceProvider>
-  (DateTime.Now.AddMonths(1), "password", "john", "myAppName", "A1B2C3D4E5F6");
+  (DateTime.Now.AddMonths(1), "password", "john", "myAppName");
 
 byte[] restoredOptions = activationKey.GetOptions<AesManaged, MD5CryptoServiceProvider>
-  ("password", "myAppName", "A1B2C3D4E5F6");
+  ("password", "john", "myAppName");
 
 bool valid = activationKey.Verify<AesManaged, MD5CryptoServiceProvider>
-  ("password", "myAppName", "A1B2C3D4E5F6");
+  ("password", "john", "myAppName");
 ```
 
 This code creates an activation key that looks like this:  
@@ -162,7 +158,6 @@ The main initializer for a new instance of ActivationKey has the following param
 | Parameter name | Description |
 | :----: | :---- |
 | expirationDate | The expiration date of the activation key. Since this date, any key validation check fails. |
-| password | The password that the user must enter to successfully confirm their access right. It is recommended to use it for applications where login and password are supposed to be entered. This password is used to encrypt the key data. Pass null for default empty password using. |
 | options | Application options to be embedded in the key. The data passed here is serialized into a byte array automatically and can be recovered as a byte array during key checking. Be aware that it is up to the custom code to deserialize the options back to the original objects. |
 | environment | All data related to the binding of the key to a specific environment. These can include the title and version of the application, the name of the registered user, the hardware ID, and more, making the use of the key unique. This data turns into a hash and cannot be recovered in any view, only verified during key checking. |
 
@@ -219,12 +214,12 @@ The above methods used the same parameters as in the constructor, I will not des
 <details><summary>View code...</summary>
 
 ```csharp
-public byte[] GetOptions(object password = null, params object[] environment)
+public byte[] GetOptions(params object[] environment)
 {
   if (Data == null || Hash == null || Tail == null) return null;
   try
   {
-    byte[] key = Serialize(password);
+    byte[] key = Serialize(environment);
     using (_ARC4 arc4 = new _ARC4(key, Tail))
     {
       // Decrypting the data.
@@ -264,11 +259,11 @@ public byte[] GetOptions(object password = null, params object[] environment)
   }
 }
 
-public bool Verify(object password = null, params object[] environment)
+public bool Verify(params object[] environment)
 {
   try
   {
-    return GetOptions(password, environment) != null;
+    return GetOptions(environment) != null;
   }
   catch
   {
@@ -292,11 +287,11 @@ string text = activationKey.ToString();
 
 text = activationKey.ToString("Key data is %D,\r\nkey hash is %H,\r\nkey tail is %T.");
 //  - or -
-text = $"Key data is {activationKey:D},\r\nkey hash is {activationKey:H},\r\nkey tail is {activationKey:T}."; 
+text = $"Key data is {activationKey:D},\r\nkey hash is {activationKey:H},\r\nkey seed is {activationKey:S}."; 
 // returns
 // Key data is KCATBZ14Y, 
 // key hash is VGDM2ZQ,
-// key tail is ATSVYMI.
+// key seed is ATSVYMI.
 ```
 
 </details>  
