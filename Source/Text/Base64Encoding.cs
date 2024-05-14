@@ -1,6 +1,6 @@
 /***************************************************************
 
-•   File: Base16Encoding.cs
+•   File: Base64Encoding.cs
 
 •   Description.
 
