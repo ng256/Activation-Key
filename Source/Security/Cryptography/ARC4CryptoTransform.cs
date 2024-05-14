@@ -1,4 +1,4 @@
-﻿/***************************************************************
+/***************************************************************
 
 •   File: ARC4CryptoTransform.cs
 
@@ -66,8 +66,6 @@ namespace System.Security.Cryptography
         // Indicates whether the transformation can be reused.
         public bool CanReuseTransform => true;
 
-        // Releases resources used by the class.
-
         public ARC4CryptoTransform()
         {
             Initialize();
@@ -127,7 +125,7 @@ namespace System.Security.Cryptography
             if (!_key.IsNullOrEmpty())
                 InitializeUsingKSA(_key);
             
-            DropDown(512); // Just skips first 512 bytes.
+            DropDown(512); // Just skips 512 bytes.
         }
 
         // Initializes the sblock with default values.
@@ -152,7 +150,6 @@ namespace System.Security.Cryptography
             }
         }
 
-
         // Initializes the sblock using linear congruential random.
         private void InitializeUsingLCR(byte[] iv)
         {
@@ -165,11 +162,13 @@ namespace System.Security.Cryptography
             int x = iv[1];
             int a = _A[iv[2] % _A.Length];
             int c = _C[iv[3] % _C.Length];
-            int m = 256;
+            const int m = 256;
             for (int i = 0; i < m; i++)
             {
-                _sblock[i] = (byte)(r ^ (x = (a * x + c) % m));
+                _sblock[i] = (byte) (r ^ (x = (a * x + c) % m));
             }
+
+            DropDown(r + a + c + m); // Skips from 256 to 1024 bytes.
         }
 
         // Skips a specified number of first random bytes to be discarded.
@@ -241,6 +240,7 @@ namespace System.Security.Cryptography
                 throw new ObjectDisposedException(nameof(ARC4CryptoTransform),GetResourceString("ObjectDisposed_Generic"));
         }
 
+        // Releases resources used by the class.
         public void Dispose()
         {
             _sblock.Clear();
