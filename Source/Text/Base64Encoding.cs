@@ -1,4 +1,4 @@
-﻿/***************************************************************
+/***************************************************************
 
 •   File: Base16Encoding.cs
 
@@ -56,7 +56,7 @@ namespace System.Text
                 case 2:
                     chars[charIndex] = GetDigit((bytes[endByteIndex] & 0xFC) >> 2);
                     chars[charIndex + 1] = GetDigit((bytes[endByteIndex] & 0x3) << 4 | (bytes[endByteIndex + 0x1] & 0xF0) >> 4);
-                    chars[charIndex + 2] = GetDigit((bytes[endByteIndex + 0x1] & 0xF) << 2);
+                    chars[charIndex + 2] = GetDigit((bytes[endByteIndex + 1] & 0xF) << 2);
                     charIndex += 3;
                     break;
             }
@@ -96,8 +96,8 @@ namespace System.Text
                     byteIndex += 1;
                     break;
                 case 2:
-                    bytes[byteIndex] = (byte)(block >> 4);
-                    bytes[byteIndex + 1] = (byte)(block >> 12);
+                    bytes[byteIndex] = (byte)(block >> 10);
+                    bytes[byteIndex + 1] = (byte)(block >> 2);
                     byteIndex += 2;
                     break;
             }
@@ -119,7 +119,7 @@ namespace System.Text
         {
             if (digit < 0x5B && digit > 0x40) return digit - 0x41;
             if (digit < 0x7B && digit > 0x60) return digit - 0x47;
-            if (digit < 0x3A && digit > 0x31) return digit + 0x04;
+            if (digit < 0x3A && digit > 0x2F) return digit + 0x04;
             if (digit == 0x23) return 0x3E;
             if (digit == 0x24) return 0x3F;
             throw new ArgumentOutOfRangeException(nameof(digit), digit, GetResourceString("Format_BadBase"));
@@ -138,14 +138,12 @@ namespace System.Text
 
         public override int GetMaxByteCount(int charCount)
         {
-            int maxByteCount = (int) Math.Ceiling(charCount * 3.0 / 4.0);
-            return maxByteCount + ((maxByteCount % 3) * 2);
+            return (charCount * 3) >> 2;
         }
 
         public override int GetMaxCharCount(int byteCount)
         {
-            int maxCharCount = (int)Math.Ceiling(byteCount * 4.0 / 3.0);
-            return maxCharCount + ((maxCharCount % 3) * 2);
+            return ((byteCount << 2) | 2) / 3;
         }
 
         public override object Clone()
