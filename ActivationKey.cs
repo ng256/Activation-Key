@@ -1157,7 +1157,7 @@ namespace System.Security.Cryptography
                 StringBuilder cache = new StringBuilder(pattern)
                     .Replace("%D", base32.Encode(Data))
                     .Replace("%H", base32.Encode(Hash))
-                    .Replace("%T", base32.Encode(Seed));
+                    .Replace("%S", base32.Encode(Seed));
                 return cache.ToString();
             }
         }
@@ -1180,7 +1180,7 @@ namespace System.Security.Cryptography
                         return IsNullOrEmpty(Data) ? string.Empty : base32.Encode(Data);
                     case "H":
                         return IsNullOrEmpty(Hash) ? string.Empty : base32.Encode(Hash);
-                    case "T":
+                    case "S":
                         return IsNullOrEmpty(Seed) ? string.Empty : base32.Encode(Seed);
                     default:
                         throw new FormatException(GetResourceString("Format_BadFormatSpecifier"));
