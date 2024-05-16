@@ -64,10 +64,7 @@ namespace System
         private static ResourceSet GetResources(Assembly assembly)
         {
             if (assembly == null)
-            {
-                throw new ArgumentNullException(nameof(assembly),
-                    GetResourceString("ArgumentNull_Assembly"));
-            }
+                throw new ArgumentNullException(nameof(assembly), GetResourceString("ArgumentNull_Assembly"));
 
             Hashtable resources = Resources;
             AssemblyName assemblyName = assembly.GetName();
@@ -253,26 +250,18 @@ namespace System
         internal static bool ArrayEquals<T>(this T[] array, T[] otherArray) where T : struct
         {
             if ((array == null) ^ (otherArray == null))
-            {
                 return false;
-            }
 
             if (array == otherArray)
-            {
                 return true;
-            }
 
             if (array.Length != otherArray.Length)
-            {
                 return false;
-            }
 
             for (int i = 0; i < array.Length; i++)
             {
                 if (!array[i].Equals(otherArray[i]))
-                {
                     return false;
-                }
             }
 
             return true;
@@ -281,32 +270,21 @@ namespace System
         // Compares two arrays using the specified comparer.
         internal static bool ArrayEquals<T>(this T[] array, T[] otherArray, IEqualityComparer<T> comparer) where T : struct
         {
-            if (comparer == null)
-            {
-                comparer = EqualityComparer<T>.Default;
-            }
+            if (comparer == null) comparer = EqualityComparer<T>.Default;
 
             if ((array == null) ^ (otherArray == null))
-            {
                 return false;
-            }
 
             if (array == otherArray)
-            {
                 return true;
-            }
 
             if (array.Length != otherArray.Length)
-            {
                 return false;
-            }
 
             for (int i = 0; i < array.Length; i++)
             {
                 if (!comparer.Equals(array[i], otherArray[i]))
-                {
                     return false;
-                }
             }
 
             return true;
@@ -320,9 +298,7 @@ namespace System
                 for (int j = i + 1; j < array.Length; j++)
                 {
                     if (array[i].Equals(array[j]))
-                    {
                         return true;
-                    }
                 }
             }
 
@@ -332,19 +308,14 @@ namespace System
         // Checks whether array contains the same values using the specified comparer.
         internal static bool ContainsDuplicates<T>(this T[] array, IEqualityComparer<T> comparer) where T : struct
         {
-            if (comparer == null)
-            {
-                comparer = EqualityComparer<T>.Default;
-            }
+            if (comparer == null) comparer = EqualityComparer<T>.Default;
 
             for (int i = 0; i < array.Length; i++)
             {
                 for (int j = i + 1; j < array.Length; j++)
                 {
                     if (comparer.Equals(array[i], array[j]))
-                    {
                         return true;
-                    }
                 }
             }
 
@@ -352,7 +323,7 @@ namespace System
         }
 
         // Gets a value from the registry indicating RegistryHive, section and parameter name
-        public static object GetRegistryValue(RegistryHive hive, string key, string parameter, object defaultValue)
+        internal static object GetRegistryValue(RegistryHive hive, string key, string parameter, object defaultValue)
         {
             using (RegistryKey regKey = RegistryKey.OpenBaseKey(hive, RegistryView.Default).OpenSubKey(key))
             {
@@ -360,12 +331,12 @@ namespace System
             }
         }
 
-        public static object GetRegistryValue(string key, string parameter, object defaultValue)
+        internal static object GetRegistryValue(string key, string parameter, object defaultValue)
         {
             return Registry.GetValue(key, parameter, defaultValue);
         }
 
-        public static void SetRegistryValue(RegistryHive hive, string key, string parameter, object value, RegistryValueKind kind)
+        internal static void SetRegistryValue(RegistryHive hive, string key, string parameter, object value, RegistryValueKind kind)
         {
             using (RegistryKey regKey = RegistryKey.OpenBaseKey(hive, RegistryView.Default).OpenSubKey(key))
             {
@@ -373,7 +344,7 @@ namespace System
             }
         }
 
-        public static void SetRegistryValue(string key, string parameter, object value, RegistryValueKind kind)
+        internal static void SetRegistryValue(string key, string parameter, object value, RegistryValueKind kind)
         {
             Registry.SetValue(key, parameter, value, kind);
         }
@@ -497,6 +468,12 @@ namespace System
                                 continue;
                             case Stream stream:
                                 if (stream.CanRead) stream.CopyTo(memory);
+                                continue;
+                            case Version ver:
+                                writer.Write(ver.Major);
+                                writer.Write(ver.Minor);
+                                writer.Write(ver.Revision);
+                                writer.Write(ver.Build);
                                 continue;
                             case ValueType @struct:
                                 int size = Marshal.SizeOf(@struct);

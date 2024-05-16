@@ -105,12 +105,14 @@ namespace System.Security.Activation
         /// Returns <see langword="true" /> if this instance of <see cref = "ActivationKey" />
         /// contains complete data, hash, seed and is ready to be verified.
         /// </summary>
+        [field: NonSerialized]
         public bool Ready
         {
             get => !InvalidState;
         }
 
         // True if not ready
+        [field: NonSerialized]
         internal bool InvalidState
         {
             get => Data.IsNullOrEmpty() || Hash.IsNullOrEmpty() || Seed.IsNullOrEmpty();
@@ -582,6 +584,56 @@ namespace System.Security.Activation
 
             return new ActivationKeyEncryptor(cryptoAlg, hashAlg, environment);
 
+        }
+
+        /// <summary>
+        /// Set the default encoding to encode/decode the activation key.
+        /// </summary>
+        /// <param name="encoding">Encoding that will be used by default.</param>
+        public static void SetDefaultEncoding(IPrintableEncoding encoding)
+        {
+            if (encoding == null)
+                throw new ArgumentNullException(nameof(encoding),
+                    GetResourceString("ArgumentNull_WithParamName", nameof(encoding)));
+            ActivationKeyTextParser.InternalParser.Encoding = encoding;
+        }
+
+        /// <summary>
+        /// Set the default encoding to encode/decode the activation key.
+        /// </summary>
+        /// <param name="encoding">Encoding that will be used by default.</param>
+        public static void SetDefaultEncoding(PrintableEncoding encoding)
+        {
+            ActivationKeyTextParser.InternalParser.Encoding = ActivationKeyTextParser.GetEncoding(encoding);
+        }
+
+        /// <summary>
+        /// Set the default encoding to encode/decode the activation key using the following alphabet.
+        /// </summary>
+        /// <param name="alphabet">String containing characters that will be used by default.</param>
+        public static void SetDefaultEncoding(string alphabet)
+        {
+            ActivationKeyTextParser.InternalParser.Encoding = ActivationKeyTextParser.GetEncoding(alphabet);
+        }
+
+        /// <summary>
+        /// Set default characters that are used to split the activation key into parts.
+        /// </summary>
+        /// <param name="delimiters">Characters that are used by default.</param>
+        public static void SetDefaultDelimiters(params char[] delimiters)
+        {
+            if (delimiters.IsNullOrEmpty())
+                throw new ArgumentException(GetResourceString("Arg_EmptyOrNullArray", nameof(delimiters)));
+            ActivationKeyTextParser.InternalParser.Delimiters = delimiters;
+        }
+
+        /// <summary>
+        /// Set default header that will be used to validate the binary format of the activation key.
+        /// </summary>
+        /// <param name="header">Value that will be used as binary header by default.</param>
+        public static void SetDefaultBinaryHeader(ushort header)
+        {
+            ActivationKeyBinaryParser.InternalParser.Header = header;
         }
 
         /// <summary>

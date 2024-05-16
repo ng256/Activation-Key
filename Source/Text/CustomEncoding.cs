@@ -40,7 +40,7 @@ namespace System.Text
             if (alphabet == null)
                 throw new ArgumentNullException(nameof(alphabet), GetResourceString("ArgumentNull_String"));
             if (alphabet.IsNullOrWhiteSpace())
-                throw new ArgumentException(nameof(alphabet), GetResourceString("Format_EmptyInputString"));
+                throw new ArgumentException(GetResourceString("Format_EmptyInputString"), nameof(alphabet));
             _encodingTable = alphabet.ToCharArray();
             if (!alphabet.IsPrintableCharacters() || _encodingTable.ContainsDuplicates())
                 throw new ArgumentException(GetResourceString("Format_InvalidString"), nameof(alphabet));

@@ -26,20 +26,39 @@ namespace System.Security.Activation
     /// Represents a parser that provides tools for text data with activation keys
     /// which can be represented as a sequence of characters separated by certain delimiters.
     /// </summary>
-    public class ActivationKeyTextParser
+    public class ActivationKeyTextParser : ICloneable
     {
         /// <summary>
         /// A constant representing the character that is used by default as a delimiter between parts of the activation key.
         /// </summary>
         internal const char DefaultDelimiter = '-';
 
-        private readonly IPrintableEncoding _encoding = Base32Encoding; // used to decode data.
-        private readonly char[] _delimiters = { DefaultDelimiter }; // used to split the activation key into parts.
+        private IPrintableEncoding _encoding = Base32Encoding; // used to decode data.
+        private char[] _delimiters = { DefaultDelimiter }; // used to split the activation key into parts.
+        internal static readonly ActivationKeyTextParser InternalParser = new ActivationKeyTextParser();
+
+        /// <summary>
+        /// The encoding used for the textual representation of the activation key.
+        /// </summary>
+        public IPrintableEncoding Encoding
+        {
+            get => (IPrintableEncoding) _encoding.Clone();
+            internal set => _encoding = value?.Clone() as IPrintableEncoding ?? (_encoding = Base32Encoding);
+        }
+
+        /// <summary>
+        /// Characters that are used to split the activation key into parts.
+        /// </summary>
+        public char[] Delimiters
+        {
+            get => _delimiters.ArrayClone();
+            internal set => _delimiters = value?.ArrayClone();
+        }
 
         /// <summary>
         /// Returns the parser with default settings.
         /// </summary>
-        public static ActivationKeyTextParser DefaultParser => new ActivationKeyTextParser();
+        public static ActivationKeyTextParser DefaultParser => (ActivationKeyTextParser) InternalParser.Clone();
 
         /// <summary>
         /// Initializes a new instance of <see cref="ActivationKeyTextParser"/> using the default parameters.
@@ -51,28 +70,46 @@ namespace System.Security.Activation
         /// <summary>
         /// Initializes a new instance of <see cref="ActivationKeyTextParser"/> using the specified parameters.
         /// </summary>
-        /// <param name="delimiters">An array of characters that are used to split the string into parts of the activation key.</param>
+        /// <param name="delimiters">Characters that are used to split the activation key into parts.</param>
         public ActivationKeyTextParser(params char[] delimiters)
         {
             if (delimiters != null && delimiters.Length > 0)
-                _delimiters = delimiters;
+                Delimiters = delimiters;
         }
 
         /// <summary>
         /// Initializes a new instance of <see cref="ActivationKeyTextParser"/>.
         /// </summary>
         /// <param name="encoding">Encoding used to encode/decode data.</param>
-        /// <param name="delimiters">An array of characters that are used to split the string into parts of the activation key.</param>
+        public ActivationKeyTextParser(IPrintableEncoding encoding)
+        {
+            Encoding = encoding;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of <see cref="ActivationKeyTextParser"/>.
+        /// </summary>
+        /// <param name="encoding">Encoding used to encode/decode data.</param>
+        public ActivationKeyTextParser(PrintableEncoding encoding)
+        {
+            _encoding = GetEncoding(encoding);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of <see cref="ActivationKeyTextParser"/>.
+        /// </summary>
+        /// <param name="encoding">Encoding used to encode/decode data.</param>
+        /// <param name="delimiters">Characters that are used to split the activation key into parts.</param>
         public ActivationKeyTextParser(IPrintableEncoding encoding, params char[] delimiters) : this(delimiters)
         {
-            _encoding = encoding ?? Base32Encoding;
+            Encoding = encoding;
         }
 
         /// <summary>
         /// Initializes a new instance of <see cref="ActivationKeyTextParser"/>.
         /// </summary>
         /// <param name="encoding">Encoding used to encode/decode data.</param>
-        /// <param name="delimiters">An array of characters that are used to split the string into parts of the activation key.</param>
+        /// <param name="delimiters">Characters that are used to split the activation key into parts.</param>
         public ActivationKeyTextParser(PrintableEncoding encoding, params char[] delimiters) : this(delimiters)
         {
             _encoding = GetEncoding(encoding);
@@ -82,7 +119,7 @@ namespace System.Security.Activation
         /// Initializes a new instance of <see cref="ActivationKeyTextParser"/>.
         /// </summary>
         /// <param name="alphabet">String containing characters that used to encode/decode the activation key data.</param>
-        /// <param name="delimiters">An array of characters that are used to split the string into parts of the activation key.</param>
+        /// <param name="delimiters">Characters that are used to split the activation key into parts.</param>
         public ActivationKeyTextParser(string alphabet, params char[] delimiters) : this(delimiters)
         {
             _encoding = GetEncoding(alphabet);
@@ -167,7 +204,7 @@ namespace System.Security.Activation
         /// <param name="encoding">The encoding used to decode text. If null, UTF-8 is used.</param>
         /// <returns>An instance of <see cref="ActivationKey"/> containing the parsed data.</returns>
         /// <exception cref="ArgumentNullException">Thrown if the <paramref name="stream"/> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown if the <paramref name="stream"/> cannot be read or is empty.</exception>
+        /// <exception cref="ArgumentException">Thrown if the <paramref name="stream"/> object cannot be read or is empty.</exception>
         public ActivationKey Parse(Stream stream, Encoding encoding = null)
         {
             if (stream == null)
@@ -177,7 +214,7 @@ namespace System.Security.Activation
             if (stream.Length == 0)
                 throw new ArgumentException(GetResourceString("Serialization_Stream"));
             if (encoding == null)
-                encoding = Encoding.UTF8;
+                encoding = System.Text.Encoding.UTF8;
 
             using (StreamReader reader = new StreamReader(stream, encoding))
             {
@@ -279,7 +316,12 @@ namespace System.Security.Activation
         /// <param name="writer">Serialization stream writer.</param>
         public void Write(ActivationKey activationKey, StreamWriter writer)
         {
-            writer.Write(GetString(activationKey));
+            if (activationKey == null)
+                throw new ArgumentNullException(nameof(activationKey),
+                    GetResourceString("ArgumentNull_WithParamName", nameof(activationKey)));
+            if (writer == null)
+                throw new ArgumentNullException(nameof(writer),
+                    GetResourceString("ArgumentNull_WithParamName", nameof(writer)));
         }
 
         /// <summary>
@@ -287,9 +329,23 @@ namespace System.Security.Activation
         /// </summary>
         /// <param name="activationKey">An instance of <see cref="ActivationKey"/> to serialize.</param>
         /// <param name="stream">Serialization stream.</param>
-        public void Write(ActivationKey activationKey, Stream stream)
+        /// <param name="encoding">The encoding used to decode text. If null, UTF-8 is used.</param>
+        /// <exception cref="ArgumentNullException">Thrown if the <paramref name="stream"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown if the <paramref name="stream"/> object is not writable.</exception>
+        public void Write(ActivationKey activationKey, Stream stream, Encoding encoding = null)
         {
-            using (StreamWriter writer = new StreamWriter(stream))
+            if (activationKey == null)
+                throw new ArgumentNullException(nameof(activationKey),
+                    GetResourceString("ArgumentNull_WithParamName", nameof(activationKey)));
+            if (stream == null)
+                throw new ArgumentNullException(nameof(stream), GetResourceString("ArgumentNull_Stream"));
+            if (!stream.CanWrite)
+                throw new ArgumentException(GetResourceString("Argument_StreamNotWritable"));
+            if (encoding == null)
+                encoding = System.Text.Encoding.UTF8;
+
+
+            using (StreamWriter writer = new StreamWriter(stream, encoding))
             {
                 Write(activationKey, writer);
             }
@@ -353,6 +409,12 @@ namespace System.Security.Activation
                     throw new ArgumentOutOfRangeException(nameof(type), type,
                         InternalTools.GetResourceString("Arg_EnumIllegalVal", type));
             }
+        }
+
+        /// <inheritdoc />
+        public object Clone()
+        {
+            return new ActivationKeyTextParser(_encoding, _delimiters);
         }
     }
 }

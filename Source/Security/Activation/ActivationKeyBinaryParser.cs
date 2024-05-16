@@ -24,18 +24,27 @@ namespace System.Security.Activation
     /// Represents a parser that provides tools for analyzing binary data with activation keys
     /// which can be represented as bytes sequence with required header.
     /// </summary>
-    public class ActivationKeyBinaryParser
+    public class ActivationKeyBinaryParser : ICloneable
     {
         // A constant representing the default header "aK" of the activation key file. You can replace it with your own value.
         internal const ushort BinaryHeader = 0x4B61;
 
-        // The header of the activation key file, which is used to verify the file format.
-        private readonly ushort _header = BinaryHeader;
+        internal static readonly ActivationKeyBinaryParser InternalParser = new ActivationKeyBinaryParser();
+        private ushort _header = BinaryHeader;
+
+        /// <summary>
+        /// The header of the activation key binary file, which is used to verify the file format.
+        /// </summary>
+        public ushort Header 
+        { 
+            get => _header;
+            internal set => _header = value;
+        }
 
         /// <summary>
         /// Returns the default instance of the <see cref="ActivationKeyBinaryParser"/>.
         /// </summary>
-        public static ActivationKeyBinaryParser DefaultParser => new ActivationKeyBinaryParser();
+        public static ActivationKeyBinaryParser DefaultParser => (ActivationKeyBinaryParser) InternalParser.Clone();
 
         /// <summary>
         /// Initializes a new instance of <see cref="ActivationKeyTextParser"/> using the default parameters.
@@ -213,6 +222,12 @@ namespace System.Security.Activation
                 Write(activationKey, stream);
                 return stream.ToArray();
             }
+        }
+
+        /// <inheritdoc />
+        public object Clone()
+        {
+            return new ActivationKeyBinaryParser(_header);
         }
     }
 }

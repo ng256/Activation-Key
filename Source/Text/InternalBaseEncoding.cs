@@ -57,23 +57,13 @@ namespace System.Text
         return GetMaxCharCount(bytes.GetMaxCount<byte>(index, count));
     }
 
-    protected virtual int GetCharCount(
-      char[] chars,
-      int charIndex,
-      int charCount,
-      byte[] bytes,
-      int byteIndex)
+    protected virtual int GetCharCount(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex)
     {
       int maxCharCount = GetMaxCharCount(bytes.GetMaxCount<byte>(byteIndex));
       return Math.Min(chars.GetMaxCount<char>(charIndex, charCount), maxCharCount);
     }
 
-    protected virtual int GetByteCount(
-      byte[] bytes,
-      int byteIndex,
-      int byteCount,
-      char[] chars,
-      int charIndex)
+    protected virtual int GetByteCount(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex)
     {
       int maxByteCount = GetMaxByteCount(chars.GetMaxCount<char>(charIndex));
       byteCount = Math.Min(bytes.GetMaxCount<byte>(byteIndex, byteCount), maxByteCount);
