@@ -1,4 +1,4 @@
-# Activation Key 2.0
+# Activation Key 2.0 .NET Class Library
 
 ## Contents.  
 
