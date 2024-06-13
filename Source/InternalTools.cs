@@ -75,7 +75,7 @@ namespace System
 
             ResourceManager resManager = new ResourceManager(assemblyName.Name, assembly);
             ResourceSet resourceSet = resManager.GetResourceSet(CultureInfo.CurrentUICulture, true, true);
-            resources.Add(assemblyName, resourceSet);
+            resources.Add(assemblyName.Name, resourceSet);
             return resourceSet;
         }
 
