@@ -46,8 +46,8 @@ namespace System.Text
             while (byteIndex < endByteIndex)
             {
                 byte value = bytes[byteIndex++];
-                chars[charIndex++] = GeDigit(value / 16);
-                chars[charIndex++] = GeDigit(value % 16);
+                chars[charIndex++] = GetDigit(value / 16);
+                chars[charIndex++] = GetDigit(value % 16);
             }
             return charIndex - startCharIndex;
         }
@@ -73,7 +73,7 @@ namespace System.Text
             throw new ArgumentOutOfRangeException(nameof(digit), digit, GetResourceString("Format_BadBase"));
         }
 
-        private static char GeDigit(int value)
+        private static char GetDigit(int value)
         {
             return value >= 0xA ? (char)(value + 0x37) : (char)(value + 0x30);
         }
