@@ -176,7 +176,7 @@ Another example, if you want to read an activation key from the Windows registry
 ```csharp
 if (!ActivationKey
       .DefaultManager
-      .LoadFromRegistry("HKEY_CURRENT_USER\SOFTWARE\MyApp\registration", "ActivationData")
+      .LoadFromRegistry(@"HKEY_CURRENT_USER\SOFTWARE\MyApp\registration", "ActivationData")
       .Verify())
 {
     // See previous example...
