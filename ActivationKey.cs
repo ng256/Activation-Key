@@ -16,13 +16,11 @@ Distributed under MIT license (https://mit-license.org/)
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Reflection;
 using System.Resources;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
-using System.Security.Activation;
 using System.Text;
 using System.Xml;
 using System.Xml.Schema;
@@ -979,6 +977,9 @@ namespace System.Security.Cryptography
                                 continue;
                             case decimal @decimal:
                                 writer.Write(@decimal);
+                                continue;
+                            case Guid guid:
+                                writer.Write(guid.ToByteArray());
                                 continue;
                             case byte[] buffer when buffer.Length > 0:
                                 writer.Write(buffer);
