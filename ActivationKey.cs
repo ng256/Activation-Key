@@ -1,17 +1,25 @@
-/*************************************************************************************************************
+/*************************************************************
 System.Security.Cryptography.ActivationKey v 1.2
-Represents the activation key used to protect the licensed application.
-Contains methods for updating the key based on the specified hardware and software environment.
 
-Key format: DATA-HASH-SEED. For Example, KCATBZ14Y4UEA-VGDM2ZQ-ATSVYMI.
+Represents  the  activation key used to protect the licensed
+application.  Contains methods for updating the key based on 
+the specified hardware and software environment.
 
-Data 	A part of the key encrypted with an environment. Contains the key expiration date and application data.
-Hash 	Checksum of the key expiration date, data, seed value and environment parameters.
-Seed	Initialization value that used to encode/decode the data.
+Key  format: DATA-HASH-SEED. 
+For example, KCATBZ14Y4UEA-VGDM2ZQ-ATSVYMI.
+
+Data - a  part  of the   key encrypted with  an environment.
+Contains  the key  expiration  date  and   application data.
+
+Hash - checksum of the key expiration date, data, seed value
+and environment parameters.
+
+Seed - initialization value that used  to  encode/decode the
+data.
 
 Distributed under MIT license (https://mit-license.org/)
 © 2021-2024 Pavel Bashkardin (https://github.com/ng256)
-**************************************************************************************************************/
+**************************************************************/
 
 using System.ComponentModel;
 using System.Diagnostics;
@@ -37,8 +45,11 @@ namespace System.Security.Cryptography
     public sealed class ActivationKey : IFormattable, ICloneable, IDisposable, IXmlSerializable
     {
         #region Static members
+        [NonSerialized]
         private const int IVSIZE = 4; // Default length of the initialization vector.
+        [NonSerialized]
         private static ResourceSet _mscorlib = null; // Mscorlib resources.
+        [NonSerialized]
         private static RNGCryptoServiceProvider _rng = null;
         private static RNGCryptoServiceProvider InternalRng => _rng ?? (_rng = new RNGCryptoServiceProvider());
         #endregion
@@ -79,7 +90,7 @@ namespace System.Security.Cryptography
             get => !InvalidState;
         }
 
-        // True if not ready
+        // True if not ready.
         private bool InvalidState
         {
             get => IsNullOrEmpty(Data) || IsNullOrEmpty(Hash) || IsNullOrEmpty(Seed);
@@ -345,7 +356,7 @@ namespace System.Security.Cryptography
             where THash : HashAlgorithm
         {
             ActivationKey activationKey = new ActivationKey();
-            using (SymmetricAlgorithm cryptoAlg = Activator.CreateInstance<TAlg>())
+            using (SymmetricAlgorithm cryptoAlg = CreateInstance<TAlg>())
             {
                 activationKey.Seed = cryptoAlg.IV;
                 using (DeriveBytes deriveBytes = new PasswordDeriveBytes(Serialize(environment), activationKey.Seed))
@@ -359,7 +370,7 @@ namespace System.Security.Cryptography
                     byte[] encryptData = Serialize(expirationDateStamp, data);
                     activationKey.Data = transform.TransformFinalBlock(encryptData, 0, encryptData.Length);
                 }
-                using (HashAlgorithm hashAlg = Activator.CreateInstance<THash>())
+                using (HashAlgorithm hashAlg = CreateInstance<THash>())
                 {
                     byte[] hashData = Serialize(expirationDateStamp, data, environment, activationKey.Seed);
                     activationKey.Hash = hashAlg.ComputeHash(hashData);
@@ -388,8 +399,8 @@ namespace System.Security.Cryptography
         /// used to get the checksum.
         /// </typeparam> 
         public static ActivationKey Create<TAlg, THash>(object data = null, params object[] environment)
-        where TAlg : SymmetricAlgorithm
-        where THash : HashAlgorithm
+            where TAlg : SymmetricAlgorithm
+            where THash : HashAlgorithm
         {
             return Create<TAlg, THash>(DateTime.MaxValue, data, environment);
         }
@@ -421,7 +432,7 @@ namespace System.Security.Cryptography
 
             try
             {
-                using (SymmetricAlgorithm cryptoAlg = Activator.CreateInstance<TAlg>())
+                using (SymmetricAlgorithm cryptoAlg = CreateInstance<TAlg>())
                 {
                     cryptoAlg.IV = Seed;
                     using (DeriveBytes deriveBytes = new PasswordDeriveBytes(Serialize(environment), Seed))
@@ -452,7 +463,7 @@ namespace System.Security.Cryptography
                         {
                             outputData = new byte[0];
                         }
-                        using (HashAlgorithm hashAlg = Activator.CreateInstance<THash>())
+                        using (HashAlgorithm hashAlg = CreateInstance<THash>())
                         {
                             byte[] hash = hashAlg.ComputeHash(Serialize(expirationDateStamp, decryptedData, environment, Seed));
                             return ByteArrayEquals(Hash, hash) ? outputData : null;
@@ -895,9 +906,24 @@ namespace System.Security.Cryptography
 
         #region Static tools
 
+        // A function that helps create a cryptographic provider instance.
+        private static T CreateInstance<T>()
+        {
+            Type type = typeof(T);
+            MethodInfo createMethod = type.GetMethod("Create", BindingFlags.Static | BindingFlags.Public, null, new Type[0], null);
+
+            return createMethod != null
+                ?
+                // Calling the static Create method without arguments if it exists.
+                (T)createMethod.Invoke(null, null)
+                :
+                // Otherwise, create an instance through Activator.
+                Activator.CreateInstance<T>();
+        }
+
         // Converts objects to a byte array. You can improve it however you find it necessary for your own stuff.
         [SecurityCritical]
-        private static unsafe byte[] Serialize(params object[] objects)
+        private static byte[] Serialize(params object[] objects)
         {
             using (MemoryStream memory = new MemoryStream())
             using (BinaryWriter writer = new BinaryWriter(memory))
@@ -905,118 +931,126 @@ namespace System.Security.Cryptography
                 for (int j = 0; j < objects.Length; j++)
                 {
                     object obj = objects[j];
-                    if (obj == null) continue;
                     try
                     {
                         switch (obj)
                         {
-                            case SecureString secureString:
-                                if (secureString == null || secureString.Length == 0)
-                                    continue;
-                                Encoding encoding = new UTF8Encoding();
-                                int maxLength = encoding.GetMaxByteCount(secureString.Length);
-                                IntPtr destPtr = Marshal.AllocHGlobal(maxLength);
-                                IntPtr sourcePtr = Marshal.SecureStringToBSTR(secureString);
-                                try
-                                {
-                                    char* chars = (char*)sourcePtr.ToPointer();
-                                    byte* bptr = (byte*)destPtr.ToPointer();
-                                    int length = encoding.GetBytes(chars, secureString.Length, bptr, maxLength);
-                                    byte[] destBytes = new byte[length];
-                                    for (int i = 0; i < length; ++i)
-                                    {
-                                        destBytes[i] = *bptr;
-                                        bptr++;
-                                    }
-                                    writer.Write(destBytes);
-                                }
-                                finally
-                                {
-                                    Marshal.FreeHGlobal(destPtr);
-                                    Marshal.ZeroFreeBSTR(sourcePtr);
-                                }
+                            case null:
                                 continue;
+
+                            case SecureString secureString:
+                                if (secureString.Length == 0) continue;
+                                byte[] secureBytes = ConvertSecureStringToBytes(secureString);
+                                writer.Write(secureBytes);
+                                continue;
+
                             case string str when str.Length > 0:
                                 writer.Write(str.ToCharArray());
                                 continue;
+
                             case DateTime date:
                                 writer.Write(date.Ticks);
                                 continue;
+
                             case bool @bool:
                                 writer.Write(@bool);
                                 continue;
+
                             case byte @byte:
                                 writer.Write(@byte);
                                 continue;
+
                             case sbyte @sbyte:
                                 writer.Write(@sbyte);
                                 continue;
+
                             case short @short:
                                 writer.Write(@short);
                                 continue;
+
                             case ushort @ushort:
                                 writer.Write(@ushort);
                                 continue;
+
                             case int @int:
                                 writer.Write(@int);
                                 continue;
+
                             case uint @uint:
                                 writer.Write(@uint);
                                 continue;
+
                             case long @long:
                                 writer.Write(@long);
                                 continue;
+
                             case ulong @ulong:
                                 writer.Write(@ulong);
                                 continue;
+
                             case float @float:
                                 writer.Write(@float);
                                 continue;
+
                             case double @double:
                                 writer.Write(@double);
                                 continue;
+
                             case decimal @decimal:
                                 writer.Write(@decimal);
                                 continue;
+
                             case Guid guid:
                                 writer.Write(guid.ToByteArray());
                                 continue;
+
                             case byte[] buffer when buffer.Length > 0:
                                 writer.Write(buffer);
                                 continue;
+
                             case char[] chars when chars.Length > 0:
                                 writer.Write(chars);
                                 continue;
+
                             case Array array when array.Length > 0:
-                                foreach (object element in array) writer.Write(Serialize(element));
+                                foreach (object element in array)
+                                {
+                                    writer.Write(Serialize(element));
+                                }
                                 continue;
+
                             case IConvertible conv:
                                 writer.Write(conv.ToString(CultureInfo.InvariantCulture));
                                 continue;
+
                             case IFormattable frm:
                                 writer.Write(frm.ToString(null, CultureInfo.InvariantCulture));
                                 continue;
+
                             case Stream stream when stream.CanWrite:
-                                stream.CopyTo(stream);
+                                stream.CopyTo(memory);
                                 continue;
+
                             case ValueType @struct:
                                 int size = Marshal.SizeOf(@struct);
-                                byte[] bytes = new byte[size];
+                                byte[] structBytes = new byte[size];
                                 IntPtr handle = Marshal.AllocHGlobal(size);
                                 try
                                 {
                                     Marshal.StructureToPtr(@struct, handle, false);
-                                    Marshal.Copy(handle, bytes, 0, size);
-                                    writer.Write(bytes);
+                                    Marshal.Copy(handle, structBytes, 0, size);
+                                    writer.Write(structBytes);
                                 }
                                 finally
                                 {
                                     Marshal.FreeHGlobal(handle);
                                 }
                                 continue;
+
                             default:
                                 if (!obj.GetType().IsSerializable)
-                                    throw new SerializationException(GetResourceString("Arg_SerializationException"));
+                                    throw new SerializationException("Object is not serializable.");
+
                                 IFormatter formatter = new BinaryFormatter();
                                 formatter.Serialize(memory, obj);
                                 continue;
@@ -1024,18 +1058,31 @@ namespace System.Security.Cryptography
                     }
                     catch (Exception e)
                     {
-#if DEBUG               // This is where the debugger information will be helpful
-                        if (Debug.Listeners.Count == 0) continue;
-                        Debug.WriteLine(DateTime.Now);
-                        Debug.WriteLine(GetResourceString("Arg_ParamName_Name", $"{nameof(objects)}[{j}]"));
-                        Debug.WriteLine(obj, "Object");
-                        Debug.WriteLine(e, "Exception");
-#endif
+                        // Обработка исключений (можно добавить логирование)
                     }
                 }
+
                 writer.Flush();
-                byte[] result = memory.ToArray();
-                return result;
+                return memory.ToArray();
+            }
+        }
+
+        private static byte[] ConvertSecureStringToBytes(SecureString secureString)
+        {
+            if (secureString == null || secureString.Length == 0)
+                return new byte[0];
+
+            IntPtr bstrPtr = Marshal.SecureStringToBSTR(secureString);
+            try
+            {
+                int length = secureString.Length * sizeof(char);
+                byte[] bytes = new byte[length];
+                Marshal.Copy(bstrPtr, bytes, 0, length);
+                return bytes;
+            }
+            finally
+            {
+                Marshal.ZeroFreeBSTR(bstrPtr);
             }
         }
 
@@ -1239,28 +1286,66 @@ namespace System.Security.Cryptography
     public sealed class ActivationKeyConverter : TypeConverter
     {
         /// <inheritdoc cref="TypeConverter.CanConvertFrom(Type)"/>
-        public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+        public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType)
         {
             if (sourceType == typeof(string)) return true;
             return base.CanConvertFrom(context, sourceType);
         }
 
         /// <inheritdoc cref="TypeConverter.CanConvertTo(Type)"/>
-        public override bool CanConvertTo(ITypeDescriptorContext context, Type destinationType)
+        public override bool CanConvertTo(ITypeDescriptorContext? context, Type destinationType)
         {
             if (destinationType == typeof(string)) return true;
             return base.CanConvertTo(context, destinationType);
         }
 
         /// <inheritdoc cref="TypeConverter.ConvertFrom(ITypeDescriptorContext, CultureInfo, object)"/>
-        public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+        public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
         {
             if (value is string text) return new ActivationKey(text);
             return base.ConvertFrom(context, culture, value);
         }
 
         /// <inheritdoc cref="TypeConverter.ConvertTo(ITypeDescriptorContext, CultureInfo, object, Type)"/>
-        public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
+        public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
+        {
+            if (destinationType == typeof(string) && value is ActivationKey activationKey)
+                return activationKey.ToString();
+
+            return base.ConvertTo(context, culture, value, destinationType);
+        }
+    }
+
+    /// <summary>
+    /// Converts <see cref = "ActivationKey" /> between other types.
+    /// </summary> 
+    public sealed class ActivationKeyConverter<TAlg, THash> : TypeConverter
+        where TAlg : SymmetricAlgorithm
+        where THash : HashAlgorithm
+    {
+        /// <inheritdoc cref="TypeConverter.CanConvertFrom(Type)"/>
+        public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType)
+        {
+            if (sourceType == typeof(string)) return true;
+            return base.CanConvertFrom(context, sourceType);
+        }
+
+        /// <inheritdoc cref="TypeConverter.CanConvertTo(Type)"/>
+        public override bool CanConvertTo(ITypeDescriptorContext? context, Type? destinationType)
+        {
+            if (destinationType == typeof(string)) return true;
+            return base.CanConvertTo(context, destinationType);
+        }
+
+        /// <inheritdoc cref="TypeConverter.ConvertFrom(ITypeDescriptorContext, CultureInfo, object)"/>
+        public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+        {
+            if (value is string text) return  ActivationKey.Create<TAlg, THash>(text);
+            return base.ConvertFrom(context, culture, value);
+        }
+
+        /// <inheritdoc cref="TypeConverter.ConvertTo(ITypeDescriptorContext, CultureInfo, object, Type)"/>
+        public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
             if (destinationType == typeof(string) && value is ActivationKey activationKey)
                 return activationKey.ToString();
