@@ -2,6 +2,15 @@
 
 Represents the management tool for activation keys that are used to protect your application. These keys are also known as license keys, product keys, product activation, software keys, and serial numbers. It is a special software key for a computer program that certifies that the copy of the program has been obtained legally.
 
+<p align="left">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
+  </a>
+  <a href="https://sourceforge.net/projects/activation-key/?pk_campaign=badge&pk_source=vendor">
+    <img src="https://b.sf-syn.com/badge_img/3453387/oss-community-choice-white?achievement=oss-community-choice" height="40" alt="SourceForge Community Choice">
+  </a>
+</p>
+
 # Contents.  
 
 1. [Introduction](#introduction)
